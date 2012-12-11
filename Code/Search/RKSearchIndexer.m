@@ -76,6 +76,12 @@ NSString * const RKSearchableAttributeNamesUserInfoKey = @"RestKitSearchableAttr
     NSMutableDictionary *userInfo = [[entity userInfo] mutableCopy];
     [userInfo setObject:attributeNames forKey:RKSearchableAttributeNamesUserInfoKey];
     [entity setUserInfo:userInfo];
+    
+    //JIFF EDIT
+    for (NSEntityDescription* subentity in [entity subentities]) {
+        [subentity setUserInfo:userInfo];
+    }
+    //END OF JIFF EDIT
 
     // Create a relationship from our indexed entity to the RKSearchWord entity
     NSRelationshipDescription *relationship = [[NSRelationshipDescription alloc] init];

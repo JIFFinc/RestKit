@@ -259,7 +259,10 @@ static RKManagedObjectStore *defaultStore = nil;
         }
     }
 
-    [self recreateManagedObjectContexts];
+    //START Jiff Edit
+    //[self recreateManagedObjectContexts];
+    //END Jiff Edit
+
     return YES;
 }
 
