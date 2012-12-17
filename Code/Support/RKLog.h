@@ -70,7 +70,7 @@ RKlcl_log(RKLogComponent, RKlcl_vError, @"" __VA_ARGS__)
 RKlcl_log(RKLogComponent, RKlcl_vWarning, @"" __VA_ARGS__)
 
 #define RKLogInfo(...)                                                                  \
-RKlcl_log(RKLogComponent, RKlcl_vInfo, @"" __VA_ARGS__)
+RKlcl_log(RKLogComponent, RKlcl_vInfo, @"" __VA_ARGS__);JFLog(@"RestKitLog", @"" __VA_ARGS__)
 
 #define RKLogDebug(...)                                                                 \
 RKlcl_log(RKLogComponent, RKlcl_vDebug, @"" __VA_ARGS__)
