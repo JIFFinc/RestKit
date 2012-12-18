@@ -26,9 +26,7 @@
 NSString *RKStringFromIndexSet(NSIndexSet *indexSet);
 NSString *RKStringFromIndexSet(NSIndexSet *indexSet)
 {
-    //JIFF EDIT
-    //    NSCParameterAssert(indexSet);
-    //END OF JIFF EDIT
+    NSCParameterAssert(indexSet);
     NSMutableString *string = [NSMutableString string];
 
     NSRange range = NSMakeRange([indexSet firstIndex], 1);
