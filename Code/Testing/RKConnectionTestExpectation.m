@@ -30,7 +30,7 @@
 
 @implementation RKConnectionTestExpectation
 
-+ (id)expectationWithRelationshipName:(NSString *)relationshipName attributes:(NSDictionary *)attributes value:(id)value
++ (instancetype)expectationWithRelationshipName:(NSString *)relationshipName attributes:(NSDictionary *)attributes value:(id)value
 {
     return [[self alloc] initWithRelationshipName:relationshipName attributes:attributes value:value];
 }

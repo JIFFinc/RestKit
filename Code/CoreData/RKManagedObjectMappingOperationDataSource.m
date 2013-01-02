@@ -18,19 +18,24 @@
 //  limitations under the License.
 //
 
+#import <objc/runtime.h>
 #import "RKManagedObjectMappingOperationDataSource.h"
 #import "RKObjectMapping.h"
 #import "RKEntityMapping.h"
 #import "RKLog.h"
 #import "RKManagedObjectStore.h"
 #import "RKMappingOperation.h"
-#import "RKDynamicMappingMatcher.h"
+#import "RKObjectMappingMatcher.h"
 #import "RKManagedObjectCaching.h"
 #import "RKRelationshipConnectionOperation.h"
 #import "RKMappingErrors.h"
 #import "RKValueTransformers.h"
+#import "RKRelationshipMapping.h"
+#import "RKObjectUtilities.h"
 
 extern NSString * const RKObjectMappingNestingAttributeKeyName;
+
+static char kRKManagedObjectMappingOperationDataSourceAssociatedObjectKey;
 
 id RKTransformedValueWithClass(id value, Class destinationType, NSValueTransformer *dateToStringValueTransformer);
 NSArray *RKApplyNestingAttributeValueToMappings(NSString *attributeName, id value, NSArray *propertyMappings);
@@ -115,6 +120,58 @@ static NSDictionary *RKEntityIdentificationAttributesForEntityMappingWithReprese
     return entityIdentifierAttributes;
 }
 
+@interface RKManagedObjectDeletionOperation : NSOperation
+
+- (id)initWithManagedObjectContext:(NSManagedObjectContext *)managedObjectContext;
+- (void)addEntityMapping:(RKEntityMapping *)entityMapping;
+@end
+
+@interface RKManagedObjectDeletionOperation ()
+@property (nonatomic, strong) NSManagedObjectContext *managedObjectContext;
+@property (nonatomic, strong) NSMutableSet *entityMappings;
+@end
+
+@implementation RKManagedObjectDeletionOperation
+
+- (id)initWithManagedObjectContext:(NSManagedObjectContext *)managedObjectContext
+{
+    self = [self init];
+    if (self) {
+        self.managedObjectContext = managedObjectContext;
+        self.entityMappings = [NSMutableSet new];
+    }
+    return self;
+}
+
+- (void)addEntityMapping:(RKEntityMapping *)entityMapping
+{
+    if (! entityMapping.deletionPredicate) return;
+    [self.entityMappings addObject:entityMapping];
+}
+
+- (void)main
+{
+    [self.managedObjectContext performBlockAndWait:^{
+        NSMutableSet *objectsToDelete = [NSMutableSet set];
+        for (RKEntityMapping *entityMapping in self.entityMappings) {
+            NSFetchRequest *fetchRequest = [NSFetchRequest alloc];
+            [fetchRequest setEntity:entityMapping.entity];
+            [fetchRequest setPredicate:entityMapping.deletionPredicate];
+            NSError *error = nil;
+            NSArray *fetchedObjects = [self.managedObjectContext executeFetchRequest:fetchRequest error:&error];
+            if (fetchedObjects) {
+                [objectsToDelete addObjectsFromArray:fetchedObjects];
+            }
+        }
+
+        for (NSManagedObject *managedObject in objectsToDelete) {
+            [self.managedObjectContext deleteObject:managedObject];
+        }
+    }];
+}
+
+@end
+
 // Set Logging Component
 #undef RKLogComponent
 #define RKLogComponent RKlcl_cRestKitCoreData
@@ -124,6 +181,7 @@ extern NSString * const RKObjectMappingNestingAttributeKeyName;
 @interface RKManagedObjectMappingOperationDataSource ()
 @property (nonatomic, strong, readwrite) NSManagedObjectContext *managedObjectContext;
 @property (nonatomic, strong, readwrite) id<RKManagedObjectCaching> managedObjectCache;
+@property (nonatomic, strong) NSMutableArray *deletionPredicates;
 @end
 
 @implementation RKManagedObjectMappingOperationDataSource
@@ -167,7 +225,7 @@ extern NSString * const RKObjectMappingNestingAttributeKeyName;
                       "Unable to update existing object instances by identification attributes. Duplicate objects may be created.");
     }
 
-    // If we have found the entity identifier attributes, try to find an existing instance to update
+    // If we have found the entity identification attributes, try to find an existing instance to update
     NSEntityDescription *entity = [entityMapping entity];
     NSManagedObject *managedObject = nil;
     if ([entityIdentifierAttributes count]) {
@@ -244,6 +302,27 @@ extern NSString * const RKObjectMappingNestingAttributeKeyName;
             [operationQueue addOperation:operation];
             RKLogTrace(@"Enqueued %@ dependent upon parent operation %@ to operation queue %@", operation, self.parentOperation, operationQueue);
         }
+
+        // Handle tombstone deletion by predicate
+        if ([(RKEntityMapping *)mappingOperation.objectMapping deletionPredicate]) {
+            RKManagedObjectDeletionOperation *deletionOperation = nil;
+            if (self.parentOperation) {
+                // Attach a deletion operation for execution after the parent operation completes
+                deletionOperation = (RKManagedObjectDeletionOperation *)objc_getAssociatedObject(self.parentOperation, &kRKManagedObjectMappingOperationDataSourceAssociatedObjectKey);
+                if (! deletionOperation) {
+                    deletionOperation = [[RKManagedObjectDeletionOperation alloc] initWithManagedObjectContext:self.managedObjectContext];
+                    objc_setAssociatedObject(self.parentOperation, &kRKManagedObjectMappingOperationDataSourceAssociatedObjectKey, deletionOperation, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+                    [deletionOperation addDependency:self.parentOperation];
+                    NSOperationQueue *operationQueue = self.operationQueue ?: [NSOperationQueue currentQueue];
+                    [operationQueue addOperation:deletionOperation];
+                }
+                [deletionOperation addEntityMapping:(RKEntityMapping *)mappingOperation.objectMapping];
+            } else {
+                deletionOperation = [[RKManagedObjectDeletionOperation alloc] initWithManagedObjectContext:self.managedObjectContext];
+                [deletionOperation addEntityMapping:(RKEntityMapping *)mappingOperation.objectMapping];
+                [deletionOperation start];
+            }
+        }
     }
     
     return YES;
@@ -278,6 +357,32 @@ extern NSString * const RKObjectMappingNestingAttributeKeyName;
             [self.managedObjectCache didDeleteObject:managedObject];
         }
     }
+}
+
+- (BOOL)mappingOperation:(RKMappingOperation *)mappingOperation deleteExistingValueOfRelationshipWithMapping:(RKRelationshipMapping *)relationshipMapping error:(NSError **)error
+{
+    // Validate the assignment policy
+    if (! relationshipMapping.assignmentPolicy == RKReplaceAssignmentPolicy) {
+        NSDictionary *userInfo = @{ NSLocalizedDescriptionKey: @"Unable to satisfy deletion request: Relationship mapping was expected to have an assignment policy of `RKReplaceAssignmentPolicy`, but did not." };
+        NSError *localError = [NSError errorWithDomain:RKErrorDomain code:RKMappingErrorInvalidAssignmentPolicy userInfo:userInfo];
+        if (error) *error = localError;
+        return NO;
+    }
+    
+    // Delete any managed objects at the destination key path from the context
+    id existingValue = [mappingOperation.destinationObject valueForKeyPath:relationshipMapping.destinationKeyPath];
+    if ([existingValue isKindOfClass:[NSManagedObject class]]) {
+        [self.managedObjectContext deleteObject:existingValue];
+    } else {
+        if (RKObjectIsCollection(existingValue)) {
+            for (NSManagedObject *managedObject in existingValue) {
+                if (! [managedObject isKindOfClass:[NSManagedObject class]]) continue;
+                [self.managedObjectContext deleteObject:managedObject];
+            }
+        }
+    }
+    
+    return YES;
 }
 
 @end

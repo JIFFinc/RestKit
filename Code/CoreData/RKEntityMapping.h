@@ -83,7 +83,7 @@
  @param managedObjectStore A managed object store containing the managed object model in which an entity with the given name is defined.
  @return A new entity mapping for the entity with the given name in the managed object model of the given managed object store.
  */
-+ (id)mappingForEntityForName:(NSString *)entityName inManagedObjectStore:(RKManagedObjectStore *)managedObjectStore;
++ (instancetype)mappingForEntityForName:(NSString *)entityName inManagedObjectStore:(RKManagedObjectStore *)managedObjectStore;
 
 ///---------------------------
 /// @name Accessing the Entity
@@ -176,6 +176,17 @@
  @return The connection object for the specified relationship or `nil` if none is configured.
  */
 - (RKConnectionDescription *)connectionForRelationship:(id)relationshipOrName;
+
+///------------------------------------
+/// @name Flagging Objects for Deletion
+///------------------------------------
+
+/**
+ A predicate that identifies objects for the receiver's entity that are to be deleted from the local store.
+
+ This property provides support for local deletion of managed objects mapped as a 'tombstone' record from the source representation.
+ */
+@property (nonatomic, copy) NSPredicate *deletionPredicate;
 
 ///------------------------------------------
 /// @name Retrieving Default Attribute Values

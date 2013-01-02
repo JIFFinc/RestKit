@@ -57,8 +57,8 @@
  @return The receiver, initialized with the request, pagination mapping, and response descriptors.
  */
 - (id)initWithRequest:(NSURLRequest *)request
-    paginationMapping:(RKObjectMapping *)paginationMapping
-  responseDescriptors:(NSArray *)responseDescriptors;
+              paginationMapping:(RKObjectMapping *)paginationMapping
+            responseDescriptors:(NSArray *)responseDescriptors;
 
 /**
  A URL with a path pattern for building a complete URL from

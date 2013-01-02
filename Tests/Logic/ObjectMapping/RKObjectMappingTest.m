@@ -7,6 +7,8 @@
 //
 
 #import "RKTestEnvironment.h"
+#import "RKTestUser.h"
+#import "RKObjectMappingOperationDataSource.h"
 
 @interface RKObjectMappingTest : RKTestCase
 
@@ -217,6 +219,39 @@
     [mapping addAttributeMappingsFromArray:@[ @"user.comments" ]];
     NSArray *expectedNames = @[ @"User.Comments" ];
     expect([mapping.propertyMappingsByDestinationKeyPath allKeys]).to.equal(expectedNames);
+}
+
+- (void)testBreakageOfRecursiveInverseCyclicGraphs
+{
+    RKObjectMapping *parentMapping = [RKObjectMapping mappingForClass:[NSObject class]];
+    [parentMapping addAttributeMappingsFromDictionary:@{ @"first_name": @"firstName", @"last_name": @"lastName" }];
+    RKObjectMapping *childMapping = [RKObjectMapping mappingForClass:[NSObject class]];
+    [childMapping addAttributeMappingsFromDictionary:@{ @"first_name": @"firstName", @"last_name": @"lastName" }];
+    [parentMapping addRelationshipMappingWithSourceKeyPath:@"children" mapping:childMapping];
+    [childMapping addRelationshipMappingWithSourceKeyPath:@"parents" mapping:parentMapping];
+    RKObjectMapping *inverseMapping = [parentMapping inverseMapping];
+    expect([inverseMapping propertyMappingsBySourceKeyPath][@"firstName"]).notTo.beNil();
+    expect([inverseMapping propertyMappingsBySourceKeyPath][@"lastName"]).notTo.beNil();
+    expect([inverseMapping propertyMappingsBySourceKeyPath][@"children"]).notTo.beNil();
+}
+
+- (void)testInverseMappingWithNilDestinationKeyPathForAttributeMapping
+{
+    // Map @"Blake" to RKTestUser with name = @"Blake"
+    RKObjectMapping *mapping = [RKObjectMapping mappingForClass:[RKTestUser class]];
+    [mapping addPropertyMapping:[RKAttributeMapping attributeMappingFromKeyPath:nil toKeyPath:@"name"]];
+    
+    RKObjectMapping *inverseMapping = [mapping inverseMapping];
+    
+    RKTestUser *user = [RKTestUser new];
+    user.name = @"Blake";
+    NSMutableDictionary *dictionary = [NSMutableDictionary dictionary];
+    RKMappingOperation *operation = [[RKMappingOperation alloc] initWithSourceObject:user destinationObject:dictionary mapping:inverseMapping];
+    RKObjectMappingOperationDataSource *dataSource = [RKObjectMappingOperationDataSource new];
+    operation.dataSource = dataSource;
+    [operation start];
+    
+    expect(operation.destinationObject).to.equal(@{ @"Blake": @{} });
 }
 
 @end
