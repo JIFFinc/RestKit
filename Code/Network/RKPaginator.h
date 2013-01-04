@@ -260,4 +260,7 @@
  */
 - (void)cancel;
 
+//JIFF EDIT
+- (BOOL) isLoading;
+//END OF JIFF EDIT
 @end

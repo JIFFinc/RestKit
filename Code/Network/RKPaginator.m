@@ -125,24 +125,30 @@ static NSUInteger RKPaginatorDefaultPerPage = 25;
 
 - (NSUInteger)currentPage
 {
-    // Referenced during initial load, so we don't rely on isLoaded.
-    NSAssert([self hasCurrentPage], @"Current page has not been initialized.");
     return _currentPage;
 }
 
 - (BOOL)hasNextPage
 {
-    NSAssert(self.isLoaded, @"Cannot determine hasNextPage: paginator is not loaded.");
-    NSAssert([self hasPageCount], @"Cannot determine hasNextPage: page count is not known.");
+    if (self.isLoaded) {
+        return self.currentPage < self.pageCount;
+    }
+    
+    return NO;
 
-    return self.currentPage < self.pageCount;
 }
 
 - (BOOL)hasPreviousPage
 {
-    NSAssert(self.isLoaded, @"Cannot determine hasPreviousPage: paginator is not loaded.");
     return self.currentPage > 1;
 }
+
+//JIFF EDIT
+- (BOOL)isLoading
+{
+    return self.objectRequestOperation ? YES : NO;
+}
+//ENDO OF JIFF EDIT
 
 #pragma mark - Action methods
 

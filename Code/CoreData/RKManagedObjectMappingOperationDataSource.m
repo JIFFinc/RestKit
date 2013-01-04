@@ -236,7 +236,10 @@ extern NSString * const RKObjectMappingNestingAttributeKeyName;
         if (entityMapping.identificationPredicate) objects = [objects filteredSetUsingPredicate:entityMapping.identificationPredicate];
         if ([objects count] > 0) {
             managedObject = [objects anyObject];
-            if ([objects count] > 1) RKLogWarning(@"Managed object cache returned %ld objects for the identifier configured for the '%@' entity, expected 1.", (long) [objects count], [entity name]);
+            if ([objects count] > 1)
+            {
+                RKLogWarning(@"Managed object cache returned %ld objects for the identifier configured for the '%@' entity, expected 1.", (long) [objects count], [entity name]);
+            }
         }
         if (managedObject && [self.managedObjectCache respondsToSelector:@selector(didFetchObject:)]) {
             [self.managedObjectCache didFetchObject:managedObject];
@@ -244,7 +247,6 @@ extern NSString * const RKObjectMappingNestingAttributeKeyName;
     }
 
     if (managedObject == nil) {
-        managedObject = [[NSManagedObject alloc] initWithEntity:entity insertIntoManagedObjectContext:self.managedObjectContext];
         [managedObject setValuesForKeysWithDictionary:entityIdentifierAttributes];
 
         if ([self.managedObjectCache respondsToSelector:@selector(didCreateObject:)]) {
