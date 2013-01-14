@@ -22,6 +22,18 @@
 
 @end
 
+@interface RKMapperTestObjectRequestOperation : RKObjectRequestOperation
+@end
+
+@implementation RKMapperTestObjectRequestOperation
+
+- (void)mapperWillStartMapping:(RKMapperOperation *)mapper
+{
+    // Used for stubbing
+}
+
+@end
+
 @implementation RKTestComplexUser
 @end
 
@@ -99,7 +111,9 @@
     [operationQueue addOperation:requestOperation];
     [operationQueue waitUntilAllOperationsAreFinished];
     
-    expect([requestOperation.error code]).to.equal(NSURLErrorCannotFindHost);
+    // NOTE: If your ISP provides a redirect page for unknown hosts, you'll get a `NSURLErrorCannotDecodeContentData`
+    NSArray *validErrorCodes = @[ @(NSURLErrorCannotDecodeContentData), @(NSURLErrorCannotFindHost) ];
+    assertThat(validErrorCodes, hasItem(@([requestOperation.error code])));
 }
 - (void)testSendingAnObjectRequestOperationToAnBrokenURL
 {
@@ -593,6 +607,17 @@
     
     expect(requestOperation.error).notTo.beNil();
     expect([requestOperation.error localizedDescription]).to.equal(@"Expected status code in (200-299,400-499), got 503");
+}
+
+- (void)testThatMapperOperationDelegateIsPassedThroughToUnderlyingMapperOperation
+{
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:@"/JSON/ComplexNestedUser.json" relativeToURL:[RKTestFactory baseURL]]];
+    RKMapperTestObjectRequestOperation *requestOperation = [[RKMapperTestObjectRequestOperation alloc] initWithRequest:request responseDescriptors:@[ [self responseDescriptorForComplexUser] ]];
+    id mockOperation = [OCMockObject partialMockForObject:requestOperation];
+    [[mockOperation expect] mapperWillStartMapping:OCMOCK_ANY];
+    [requestOperation start];
+    expect([requestOperation isFinished]).will.beTruthy();
+    [mockOperation verify];
 }
 
 @end

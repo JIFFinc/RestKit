@@ -296,6 +296,7 @@ static dispatch_queue_t RKResponseMapperSerializationQueue() {
     RKObjectMappingOperationDataSource *dataSource = [RKObjectMappingOperationDataSource new];
     self.mapperOperation = [[RKMapperOperation alloc] initWithRepresentation:sourceObject mappingsDictionary:self.responseMappingsDictionary];
     self.mapperOperation.mappingOperationDataSource = dataSource;
+    self.mapperOperation.delegate = self.mapperDelegate;
     if (NSLocationInRange(self.response.statusCode, RKStatusCodeRangeForClass(RKStatusCodeClassSuccessful))) {
         self.mapperOperation.targetObject = self.targetObject;
     } else {
@@ -327,7 +328,7 @@ static inline NSManagedObjectID *RKObjectIDFromObjectIfManaged(id object)
 
 - (RKMappingResult *)performMappingWithObject:(id)sourceObject error:(NSError **)error
 {
-    NSParameterAssert(self.managedObjectContext);
+    NSAssert(self.managedObjectContext, @"Unable to perform mapping: No `managedObjectContext` assigned. (Mapping response.URL = %@)", self.response.URL);
 
     __block NSError *blockError = nil;
     __block RKMappingResult *mappingResult = nil;
