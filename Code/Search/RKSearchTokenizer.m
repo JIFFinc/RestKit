@@ -17,9 +17,9 @@
     CFLocaleRef locale = CFLocaleCopyCurrent();
 
     // Remove diacratics and lowercase our input text
-    NSString *tokenizeText = string = [string stringByFoldingWithOptions:kCFCompareCaseInsensitive|kCFCompareDiacriticInsensitive locale:[NSLocale systemLocale]];
+   string = [string stringByFoldingWithOptions:kCFCompareCaseInsensitive|kCFCompareDiacriticInsensitive locale:[NSLocale systemLocale]];
     //JIFF Addition
-    tokenizeText = string = [string stringByReplacingOccurrencesOfString:@"&" withString:@"and"];
+     NSString *tokenizeText  = string = [string stringByReplacingOccurrencesOfString:@"&" withString:@"and"];
     //END of JIFF Addition
     CFStringTokenizerRef tokenizer = CFStringTokenizerCreate(kCFAllocatorDefault, (__bridge CFStringRef)tokenizeText, CFRangeMake(0, CFStringGetLength((__bridge CFStringRef)tokenizeText)), kCFStringTokenizerUnitWord, locale);
     CFStringTokenizerTokenType tokenType = kCFStringTokenizerTokenNone;
