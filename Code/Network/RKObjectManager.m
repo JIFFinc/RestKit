@@ -271,71 +271,6 @@ static NSString *RKMIMETypeFromAFHTTPClientParameterEncoding(AFHTTPClientParamet
     return RKMIMETypeFormURLEncoded;
 }
 
-@interface RKTemporaryManagedObjectVisitor : NSObject
-
-+ (NSSet *)temporaryManagedObjectsFromObject:(NSManagedObject *)managedObject;
-
-- (id)initWithManagedObject:(NSManagedObject *)managedObject;
-@property (nonatomic, readonly) NSSet *temporaryObjects;
-@end
-
-@interface RKTemporaryManagedObjectVisitor ()
-@property (nonatomic, strong) NSMutableSet *mutableTemporaryObjects;
-@property (nonatomic, strong) NSMutableDictionary *mutableVisitedObjectsToRelationships;
-@end
-
-@implementation RKTemporaryManagedObjectVisitor
-
-+ (NSSet *)temporaryManagedObjectsFromObject:(NSManagedObject *)managedObject
-{
-    RKTemporaryManagedObjectVisitor *visitor = [[RKTemporaryManagedObjectVisitor alloc] initWithManagedObject:managedObject];
-    return visitor.temporaryObjects;
-}
-
-- (id)initWithManagedObject:(NSManagedObject *)managedObject
-{
-    self = [super init];
-    if (self) {
-        self.mutableVisitedObjectsToRelationships = [NSMutableDictionary new];
-        self.mutableTemporaryObjects = [NSMutableSet set];
-        
-        if ([managedObject.objectID isTemporaryID]) [self.mutableTemporaryObjects addObject:managedObject];
-        [[managedObject.entity relationshipsByName] enumerateKeysAndObjectsUsingBlock:^(NSString *relationshipName, NSRelationshipDescription *relationship, BOOL *stop) {
-            [self visitObjectsAtRelationship:relationship ofObject:managedObject];
-        }];
-    }
-    return self;
-}
-
-- (void)visitObjectsAtRelationship:(NSRelationshipDescription *)relationship ofObject:(NSManagedObject *)managedObject
-{
-    NSValue *dictionaryKey = [NSValue valueWithNonretainedObject:managedObject];
-    NSMutableSet *visitedRelationships = [self.mutableVisitedObjectsToRelationships objectForKey:dictionaryKey];
-    if (!visitedRelationships) {
-        visitedRelationships = [NSMutableSet set];
-        [self.mutableVisitedObjectsToRelationships setObject:visitedRelationships forKey:dictionaryKey];
-    }
-    if ([visitedRelationships containsObject:relationship]) return;
-    [visitedRelationships addObject:relationship];
-    
-    id relatedObjectOrObjects = [managedObject valueForKey:relationship.name];
-    if (relatedObjectOrObjects && ![relationship isToMany]) relatedObjectOrObjects = @[ relatedObjectOrObjects ];
-    
-    for (NSManagedObject *relatedObject in relatedObjectOrObjects) {
-        if ([[relatedObject objectID] isTemporaryID]) [self.mutableTemporaryObjects addObject:relatedObject];
-        [[relatedObject.entity relationshipsByName] enumerateKeysAndObjectsUsingBlock:^(NSString *relationshipName, NSRelationshipDescription *relationship, BOOL *stop) {
-            [self visitObjectsAtRelationship:relationship ofObject:relatedObject];
-        }];
-    }
-}
-
-- (NSSet *)temporaryObjects
-{
-    return [self.mutableTemporaryObjects copy];
-}
-
-@end
-
 ///////////////////////////////////
 
 @interface RKObjectManager ()
@@ -584,8 +519,16 @@ static NSString *RKMIMETypeFromAFHTTPClientParameterEncoding(AFHTTPClientParamet
 {
     RKObjectRequestOperation *operation = nil;
     NSURLRequest *request = [self requestWithObject:object method:method path:path parameters:parameters];
-    NSString *requestPath = (path) ? path : [[self.router URLForObject:object method:method] relativeString];
-    NSArray *matchingDescriptors = RKFilteredArrayOfResponseDescriptorsMatchingPath(self.responseDescriptors, requestPath);
+    NSDictionary *routingMetadata = nil;
+    if (! path) {
+        RKRoute *route = [self.router.routeSet routeForObject:object method:method];
+        NSDictionary *interpolatedParameters = nil;
+        NSURL *URL = [self URLWithRoute:route object:object interpolatedParameters:&interpolatedParameters];
+        path = [URL relativeString];
+        routingMetadata = @{ @"routing": @{ @"parameters": interpolatedParameters, @"route": route } };
+    }
+    
+    NSArray *matchingDescriptors = RKFilteredArrayOfResponseDescriptorsMatchingPath(self.responseDescriptors, path);
     BOOL containsEntityMapping = RKDoesArrayOfResponseDescriptorsContainEntityMapping(matchingDescriptors);
     BOOL isManagedObjectRequestOperation = (containsEntityMapping || [object isKindOfClass:[NSManagedObject class]]);
     
@@ -596,7 +539,9 @@ static NSString *RKMIMETypeFromAFHTTPClientParameterEncoding(AFHTTPClientParamet
         operation = [self managedObjectRequestOperationWithRequest:request managedObjectContext:managedObjectContext success:nil failure:nil];
 
         if ([object isKindOfClass:[NSManagedObject class]]) {
-            NSSet *temporaryObjects = [RKTemporaryManagedObjectVisitor temporaryManagedObjectsFromObject:object];
+            static NSPredicate *temporaryObjectsPredicate = nil;
+            if (! temporaryObjectsPredicate) temporaryObjectsPredicate = [NSPredicate predicateWithFormat:@"objectID.isTemporaryID == YES"];
+            NSSet *temporaryObjects = [[managedObjectContext insertedObjects] filteredSetUsingPredicate:temporaryObjectsPredicate];
             if ([temporaryObjects count]) {
                 RKLogInfo(@"Asked to perform object request for NSManagedObject with temporary object IDs: Obtaining permanent ID before proceeding.");
                 __block BOOL _blockSuccess;
@@ -614,7 +559,22 @@ static NSString *RKMIMETypeFromAFHTTPClientParameterEncoding(AFHTTPClientParamet
     }
     
     if (RKDoesArrayOfResponseDescriptorsContainMappingForClass(self.responseDescriptors, [object class])) operation.targetObject = object;
+    operation.mappingMetadata = routingMetadata;
     return operation;
+}
+
+- (NSURL *)URLWithRoute:(RKRoute *)route object:(id)object interpolatedParameters:(NSDictionary **)interpolatedParameters
+{
+    NSString *path = nil;
+    if (object) {
+        RKPathMatcher *pathMatcher = [RKPathMatcher pathMatcherWithPattern:route.pathPattern];
+        path = [pathMatcher pathFromObject:object addingEscapes:route.shouldEscapePath interpolatedParameters:interpolatedParameters];
+    } else {
+        // When there is no object, the path pattern is our complete path
+        path = route.pathPattern;
+        if (interpolatedParameters) *interpolatedParameters = @{};
+    }
+    return [NSURL URLWithString:path relativeToURL:self.baseURL];
 }
 
 - (void)getObjectsAtPathForRelationship:(NSString *)relationshipName
@@ -623,9 +583,14 @@ static NSString *RKMIMETypeFromAFHTTPClientParameterEncoding(AFHTTPClientParamet
                                 success:(void (^)(RKObjectRequestOperation *operation, RKMappingResult *mappingResult))success
                                 failure:(void (^)(RKObjectRequestOperation *operation, NSError *error))failure
 {
-    NSURL *URL = [self.router URLForRelationship:relationshipName ofObject:object method:RKRequestMethodGET];
+    RKRoute *route = [self.router.routeSet routeForRelationship:relationshipName ofClass:[object class] method:RKRequestMethodGET];
+    NSDictionary *interpolatedParameters = nil;
+    NSURL *URL = [self URLWithRoute:route object:object interpolatedParameters:&interpolatedParameters];
     NSAssert(URL, @"Failed to generate URL for relationship named '%@' for object: %@", relationshipName, object);
-    return [self getObjectsAtPath:[URL relativeString] parameters:parameters success:success failure:failure];
+    RKObjectRequestOperation *operation = [self appropriateObjectRequestOperationWithObject:nil method:RKRequestMethodGET path:[URL relativeString] parameters:parameters];
+    operation.mappingMetadata = @{ @"routing": @{ @"parameters": interpolatedParameters, @"route": route } };
+    [operation setCompletionBlockWithSuccess:success failure:failure];
+    [self enqueueObjectRequestOperation:operation];
 }
 
 - (void)getObjectsAtPathForRouteNamed:(NSString *)routeName
@@ -634,13 +599,18 @@ static NSString *RKMIMETypeFromAFHTTPClientParameterEncoding(AFHTTPClientParamet
                               success:(void (^)(RKObjectRequestOperation *operation, RKMappingResult *mappingResult))success
                               failure:(void (^)(RKObjectRequestOperation *operation, NSError *error))failure
 {
-    NSParameterAssert(routeName);
-    RKRequestMethod method;
-    NSURL *URL = [self.router URLForRouteNamed:routeName method:&method object:object];
+    NSParameterAssert(routeName);    
+    RKRoute *route = [self.router.routeSet routeForName:routeName];
+    NSDictionary *interpolatedParameters = nil;
+    NSURL *URL = [self URLWithRoute:route object:object interpolatedParameters:&interpolatedParameters];
     NSAssert(URL, @"No route found named '%@'", routeName);
-    NSString *path = [URL relativeString];
-    NSAssert(method == RKRequestMethodGET, @"Expected route named '%@' to specify a GET, but it does not", routeName);
-    return [self getObjectsAtPath:path parameters:parameters success:success failure:failure];
+    NSAssert(route.method == RKRequestMethodGET, @"Expected route named '%@' to specify a GET, but it does not", routeName);
+    
+    RKObjectRequestOperation *operation = [self appropriateObjectRequestOperationWithObject:nil method:RKRequestMethodGET path:[URL relativeString] parameters:parameters];
+    operation.mappingMetadata = @{ @"routing": @{ @"parameters": interpolatedParameters, @"route": route } };
+    [operation setCompletionBlockWithSuccess:success failure:failure];
+    [self enqueueObjectRequestOperation:operation];
+
 }
 
 - (void)getObjectsAtPath:(NSString *)path
@@ -846,13 +816,15 @@ static NSString *RKMIMETypeFromAFHTTPClientParameterEncoding(AFHTTPClientParamet
     NSMutableArray *operations = [[NSMutableArray alloc] initWithCapacity:objects.count];
     for (id object in objects) {
         RKObjectRequestOperation *operation = nil;
-        NSURL *URL = [self.router URLWithRoute:route object:object];
+        NSDictionary *interpolatedParameters = nil;
+        NSURL *URL = [self URLWithRoute:route object:object interpolatedParameters:&interpolatedParameters];
         NSAssert(URL, @"Failed to generate URL for route %@ with object %@", route, object);
         if ([route isClassRoute]) {
             operation = [self appropriateObjectRequestOperationWithObject:object method:route.method path:[URL relativeString] parameters:nil];
         } else {
             operation = [self appropriateObjectRequestOperationWithObject:nil method:route.method path:[URL relativeString] parameters:nil];
         }
+        operation.mappingMetadata = @{ @"routing": interpolatedParameters, @"route": route };
         [operations addObject:operation];
     }
     return [self enqueueBatchOfObjectRequestOperations:operations progress:progress completion:completion];
