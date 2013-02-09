@@ -56,6 +56,7 @@
         RKManagedObjectStore *managedObjectStore = [[RKManagedObjectStore alloc] initWithManagedObjectModel:model];
         NSError *error;
         NSPersistentStore *persistentStore = [managedObjectStore addSQLitePersistentStoreAtPath:storePath fromSeedDatabaseAtPath:nil withConfiguration:nil options:nil error:&error];
+        [managedObjectStore createManagedObjectContexts];
         if (persistentStore) {
             BOOL success = [managedObjectStore resetPersistentStores:&error];
             if (! success) {
