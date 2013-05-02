@@ -250,6 +250,7 @@ NSString * const RKSearchableAttributeNamesUserInfoKey = @"RestKitSearchableAttr
     
     NSSet *candidateObjects = [[NSSet setWithSet:managedObjectContext.insertedObjects] setByAddingObjectsFromSet:managedObjectContext.updatedObjects];
     NSSet *objectsToIndex = [self objectsToIndexFromCandidateObjects:candidateObjects checkChangedValues:YES];
+    RKLogInfo(@"Indexing %ld changed searchable objects", (unsigned long) objectsToIndex.count);
     
     if (wait) {
         // Synchronous indexing
@@ -379,7 +380,7 @@ NSString * const RKSearchableAttributeNamesUserInfoKey = @"RestKitSearchableAttr
 {
     NSUInteger totalObjects = [objects count];
     NSMutableSet *objectsNeedingIndexing = [[NSMutableSet alloc] initWithCapacity:totalObjects];
-    RKLogInfo(@"Indexing %ld changed objects", (unsigned long) totalObjects);
+    RKLogTrace(@"Indexing %ld changed objects", (unsigned long) totalObjects);
 
     for (NSManagedObject *managedObject in objects) {        
         NSArray *searchableAttributes = [managedObject.entity.userInfo objectForKey:RKSearchableAttributeNamesUserInfoKey];
