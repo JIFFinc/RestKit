@@ -19,6 +19,7 @@
 //
 
 #import <objc/runtime.h>
+#import <CoreData/CoreData.h>
 #import "RKPropertyInspector.h"
 #import "RKLog.h"
 #import "RKObjectUtilities.h"
