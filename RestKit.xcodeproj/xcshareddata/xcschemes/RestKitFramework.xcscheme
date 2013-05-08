@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "0460"
    version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -9,14 +8,14 @@
          <BuildActionEntry
             buildForTesting = "YES"
             buildForRunning = "YES"
-            buildForProfiling = "NO"
-            buildForArchiving = "NO"
-            buildForAnalyzing = "NO">
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "25160E77145651060060A5C5"
-               BuildableName = "RestKitFrameworkTests.octest"
-               BlueprintName = "RestKitFrameworkTests"
+               BlueprintIdentifier = "25160E61145651060060A5C5"
+               BuildableName = "RestKit.framework"
+               BlueprintName = "RestKitFramework"
                ReferencedContainer = "container:RestKit.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
