@@ -1,49 +1,39 @@
 require 'rubygems'
 require 'bundler/setup'
-require 'restkit/rake'
+require 'rakeup'
 require 'debugger'
 
-RestKit::Rake::ServerTask.new do |t|
+RakeUp::ServerTask.new do |t|
   t.port = 4567
   t.pid_file = 'Tests/Server/server.pid'
   t.rackup_file = 'Tests/Server/server.ru'
-  t.log_file = 'Tests/Server/server.log'
-
-  t.adapter(:thin) do |thin|
-    thin.config_file = 'Tests/Server/thin.yml'
-  end
+  t.server = :thin
 end
 
 namespace :test do
   desc "Run the unit tests for iOS"
   task :ios do
-    system("xctool -workspace RestKit.xcworkspace -scheme RestKitTests test -test-sdk iphonesimulator")
-    $ios_return_value = $?
+    $ios_success = system("xctool -workspace RestKit.xcworkspace -scheme RestKitTests test -test-sdk iphonesimulator")
   end
   
   desc "Run the unit tests for OS X"
   task :osx do
-    system("xctool -workspace RestKit.xcworkspace -scheme RestKitFrameworkTests test -test-sdk macosx -sdk macosx")
-    $osx_return_value = $?
-  end
-  
-  task :all do
-    Rake.application.invoke_task("test:ios")
-    Rake.application.invoke_task("test:osx")
-    fail "\033[0;31m!! iOS unit tests failed" unless $ios_return_value.success?
-    fail "\033[0;31m!! OS X unit tests failed" unless $osx_return_value.success?
-    if $ios_return_value.success? && $osx_return_value.success?
-      puts "\033[0;32m** All tests executed successfully"
-    else
-      exit(-1)
-    end
+    $osx_success = system("xctool -workspace RestKit.xcworkspace -scheme RestKitFrameworkTests test -test-sdk macosx -sdk macosx")
   end
 end
 
 desc 'Run all the RestKit tests'
-task :test => "test:all"
+task :test => ['test:ios', 'test:osx'] do
+  puts "\033[0;31m!! iOS unit tests failed" unless $ios_success
+  puts "\033[0;31m!! OS X unit tests failed" unless $osx_success
+  if $ios_success && $osx_success
+    puts "\033[0;32m** All tests executed successfully"
+  else
+    exit(-1)
+  end
+end
 
-task :default => ["server:autostart", "test:all", "server:autostop"]
+task :default => ["server:autostart", :test, "server:autostop"]
 
 def restkit_version
   @restkit_version ||= ENV['VERSION'] || File.read("VERSION").chomp

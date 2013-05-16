@@ -121,14 +121,15 @@ NSSet *RKSetByRemovingSubkeypathsFromSet(NSSet *setOfKeyPaths)
 static NSManagedObject *RKRefetchManagedObjectInContext(NSManagedObject *managedObject, NSManagedObjectContext *managedObjectContext)
 {
     NSManagedObjectID *managedObjectID = [managedObject objectID];
-    if (! [managedObject managedObjectContext]) return nil; // Object has been deleted
     if ([managedObjectID isTemporaryID]) {
         RKLogWarning(@"Unable to refetch managed object %@: the object has a temporary managed object ID.", managedObject);
         return managedObject;
     }
     NSError *error = nil;
     NSManagedObject *refetchedObject = [managedObjectContext existingObjectWithID:managedObjectID error:&error];
-    NSCAssert(refetchedObject, @"Failed to find existing object with ID %@ in context %@: %@", managedObjectID, managedObjectContext, error);
+    if (! refetchedObject) {
+        RKLogWarning(@"Failed to refetch managed object with ID %@: %@", managedObjectID, error);
+    }
     return refetchedObject;
 }
 
@@ -137,31 +138,28 @@ static id RKRefetchedValueInManagedObjectContext(id value, NSManagedObjectContex
     if (! value) {
         return value;
     } else if ([value isKindOfClass:[NSArray class]]) {
-        BOOL isMutable = [value isKindOfClass:[NSMutableArray class]];
         NSMutableArray *newValue = [[NSMutableArray alloc] initWithCapacity:[value count]];
         for (__strong id object in value) {
             if ([object isKindOfClass:[NSManagedObject class]]) object = RKRefetchManagedObjectInContext(object, managedObjectContext);
             if (object) [newValue addObject:object];
         }
-        value = (isMutable) ? newValue : [newValue copy];
+        return newValue;
     } else if ([value isKindOfClass:[NSSet class]]) {
-        BOOL isMutable = [value isKindOfClass:[NSMutableSet class]];
         NSMutableSet *newValue = [[NSMutableSet alloc] initWithCapacity:[value count]];
         for (__strong id object in value) {
             if ([object isKindOfClass:[NSManagedObject class]]) object = RKRefetchManagedObjectInContext(object, managedObjectContext);
             if (object) [newValue addObject:object];
         }
-        value = (isMutable) ? newValue : [newValue copy];
+        return newValue;
     } else if ([value isKindOfClass:[NSOrderedSet class]]) {
-        BOOL isMutable = [value isKindOfClass:[NSMutableOrderedSet class]];
         NSMutableOrderedSet *newValue = [NSMutableOrderedSet orderedSet];
         [(NSOrderedSet *)value enumerateObjectsUsingBlock:^(id object, NSUInteger index, BOOL *stop) {
             if ([object isKindOfClass:[NSManagedObject class]]) object = RKRefetchManagedObjectInContext(object, managedObjectContext);
             if (object) [newValue setObject:object atIndex:index];
         }];
-        value = (isMutable) ? newValue : [newValue copy];
+        return newValue;
     } else if ([value isKindOfClass:[NSManagedObject class]]) {
-        value = RKRefetchManagedObjectInContext(value, managedObjectContext);
+        return RKRefetchManagedObjectInContext(value, managedObjectContext);
     }
     
     return value;
@@ -264,9 +262,11 @@ static id RKRefetchedValueInManagedObjectContext(id value, NSManagedObjectContex
                     if (RKObjectIsCollection(sourceObject)) {
                         // This is a to-many relationship, we want to refetch each item at the keyPath
                         for (id nestedObject in sourceObject) {
-                            // Refetch this object. Set it on the destination.
-                            NSManagedObject *managedObject = [nestedObject valueForKey:destinationKey];
-                            [nestedObject setValue:RKRefetchedValueInManagedObjectContext(managedObject, self.managedObjectContext) forKey:destinationKey];
+                            // NOTE: If this collection was mapped with a dynamic mapping then each instance may not respond to the key
+                            if ([nestedObject respondsToSelector:NSSelectorFromString(destinationKey)]) {
+                                NSManagedObject *managedObject = [nestedObject valueForKey:destinationKey];
+                                [nestedObject setValue:RKRefetchedValueInManagedObjectContext(managedObject, self.managedObjectContext) forKey:destinationKey];
+                            }
                         }
                     } else {
                         // This is a singular relationship. We want to refetch the object and set it directly.
@@ -410,6 +410,9 @@ static NSSet *RKManagedObjectsFromMappingResultWithMappingInfo(RKMappingResult *
     return managedObjectsInMappingResult;
 }
 
+// Defined in RKObjectManager.h
+BOOL RKDoesArrayOfResponseDescriptorsContainOnlyEntityMappings(NSArray *responseDescriptors);
+
 @interface RKManagedObjectRequestOperation ()
 // Core Data specific
 @property (nonatomic, strong) NSManagedObjectContext *privateContext;
@@ -422,6 +425,7 @@ static NSSet *RKManagedObjectsFromMappingResultWithMappingInfo(RKMappingResult *
 @property (nonatomic, strong) NSCachedURLResponse *cachedResponse;
 @property (nonatomic, readonly) BOOL canSkipMapping;
 @property (nonatomic, assign) BOOL hasMemoizedCanSkipMapping;
+@property (nonatomic, copy) void (^willSaveMappingContextBlock)(NSManagedObjectContext *mappingContext);
 @end
 
 @implementation RKManagedObjectRequestOperation
@@ -475,6 +479,28 @@ static NSSet *RKManagedObjectsFromMappingResultWithMappingInfo(RKMappingResult *
     _managedObjectContext = managedObjectContext;
 
     if (managedObjectContext) {
+        [managedObjectContext performBlockAndWait:^{
+            if ([managedObjectContext hasChanges]) {
+                if ([managedObjectContext.insertedObjects count] && [self.managedObjectCache respondsToSelector:@selector(didCreateObject:)]) {
+                    for (NSManagedObject *managedObject in managedObjectContext.insertedObjects) {
+                        [self.managedObjectCache didCreateObject:managedObject];
+                    }
+                }
+                
+                if ([managedObjectContext.updatedObjects count] && [self.managedObjectCache respondsToSelector:@selector(didFetchObject:)]) {
+                    for (NSManagedObject *managedObject in managedObjectContext.updatedObjects) {
+                        [self.managedObjectCache didFetchObject:managedObject];
+                    }
+                }
+                
+                if ([managedObjectContext.deletedObjects count] && [self.managedObjectCache respondsToSelector:@selector(didDeleteObject:)]) {
+                    for (NSManagedObject *managedObject in managedObjectContext.deletedObjects) {
+                        [self.managedObjectCache didDeleteObject:managedObject];
+                    }
+                }
+            }
+        }];
+        
         // Create a private context
         NSManagedObjectContext *privateContext = [[NSManagedObjectContext alloc] initWithConcurrencyType:NSPrivateQueueConcurrencyType];
         [privateContext setParentContext:managedObjectContext];
@@ -505,6 +531,13 @@ static NSSet *RKManagedObjectsFromMappingResultWithMappingInfo(RKMappingResult *
         NSHTTPURLResponse *response = (NSHTTPURLResponse *)self.HTTPRequestOperation.response;
         if (! [RKCacheableStatusCodes() containsIndex:response.statusCode]) return NO;
         
+        // Check if all the response descriptors are backed by Core Data
+        NSMutableArray *matchingResponseDescriptors = [NSMutableArray array];
+        for (RKResponseDescriptor *responseDescriptor in self.responseDescriptors) {
+            if ([responseDescriptor matchesResponse:response]) [matchingResponseDescriptors addObject:responseDescriptor];
+        }
+        if (! RKDoesArrayOfResponseDescriptorsContainOnlyEntityMappings(matchingResponseDescriptors)) return NO;
+
         // Check for a change in the Etag
         NSString *cachedEtag = [[(NSHTTPURLResponse *)[self.cachedResponse response] allHeaderFields] objectForKey:@"Etag"];
         NSString *responseEtag = [[response allHeaderFields] objectForKey:@"Etag"];
@@ -583,6 +616,11 @@ static NSSet *RKManagedObjectsFromMappingResultWithMappingInfo(RKMappingResult *
         success = [weakSelf obtainPermanentObjectIDsForInsertedObjects:&error];
         if (! success || [weakSelf isCancelled]) {
             return completionBlock(nil, error);
+        }
+        if (weakSelf.willSaveMappingContextBlock) {
+            [weakSelf.privateContext performBlockAndWait:^{
+                weakSelf.willSaveMappingContextBlock(weakSelf.privateContext);
+            }];
         }
         success = [weakSelf saveContext:&error];
         if (! success || [weakSelf isCancelled]) {
@@ -678,10 +716,12 @@ static NSSet *RKManagedObjectsFromMappingResultWithMappingInfo(RKMappingResult *
         return YES;
     }
     
-    NSSet *managedObjectsInMappingResult = RKManagedObjectsFromMappingResultWithMappingInfo(mappingResult, self.mappingInfo);
-    if (! managedObjectsInMappingResult) return YES;
+    NSSet *managedObjectsInMappingResult = RKManagedObjectsFromMappingResultWithMappingInfo(mappingResult, self.mappingInfo) ?: [NSSet set];
     NSSet *localObjects = [self localObjectsFromFetchRequestsMatchingRequestURL:error];
-    if (! localObjects) return NO;
+    if (! localObjects) {
+        RKLogError(@"Failed when attempting to fetch local candidate objects for orphan cleanup: %@", error ? *error : nil);
+        return NO;
+    }
     RKLogDebug(@"Checking mappings result of %ld objects for %ld potentially orphaned local objects...", (long) [managedObjectsInMappingResult count], (long) [localObjects count]);
     
     NSMutableSet *orphanedObjects = [localObjects mutableCopy];
