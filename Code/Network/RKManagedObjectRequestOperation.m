@@ -728,10 +728,12 @@ BOOL RKDoesArrayOfResponseDescriptorsContainOnlyEntityMappings(NSArray *response
         return YES;
     }
     
-    if ([self canSkipMapping]) {
-        RKLogDebug(@"Skipping deletion of orphaned objects: 304 (Not Modified) status code encountered");
-        return YES;
-    }
+// JIFF - ALWAYS CLEAN ORPHANS - ALSO IF SERVER RESPONSE HAS NOT CHANGED
+//    if ([self canSkipMapping]) {
+//        RKLogDebug(@"Skipping deletion of orphaned objects: 304 (Not Modified) status code encountered");
+//        return YES;
+//    }
+// END - JIFF
     
     // Determine if there are any fetch request blocks to use for orphaned object cleanup
     NSArray *fetchRequests = [self fetchRequestsMatchingResponseURL];
