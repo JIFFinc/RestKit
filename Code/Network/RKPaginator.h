@@ -270,5 +270,11 @@
 
 //JIFF EDIT
 - (BOOL) isLoading;
+
+/**
+ Metadata passed to request
+ */
+@property (nonatomic, strong) NSDictionary* mappingMetadata;
+
 //END OF JIFF EDIT
 @end
