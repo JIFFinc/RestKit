@@ -139,6 +139,7 @@ static BOOL entityIdentificationInferenceEnabled = YES;
 @implementation RKEntityMapping
 
 @synthesize identificationAttributes = _identificationAttributes;
+@synthesize objectClass;
 
 + (instancetype)mappingForClass:(Class)objectClass
 {
@@ -159,9 +160,9 @@ static BOOL entityIdentificationInferenceEnabled = YES;
 - (id)initWithEntity:(NSEntityDescription *)entity
 {
     NSAssert(entity, @"Cannot initialize an RKEntityMapping without an entity. Maybe you want RKObjectMapping instead?");
-    Class objectClass = NSClassFromString([entity managedObjectClassName]);
-    NSAssert(objectClass, @"Cannot initialize an entity mapping for an entity with a nil managed object class: Got nil class for managed object class name '%@'. Maybe you forgot to add the class files to your target?", [entity managedObjectClassName]);
-    self = [self initWithClass:objectClass];
+    Class anObjectClass = NSClassFromString([entity managedObjectClassName]);
+    NSAssert(anObjectClass, @"Cannot initialize an entity mapping for an entity with a nil managed object class: Got nil class for managed object class name '%@'. Maybe you forgot to add the class files to your target?", [entity managedObjectClassName]);
+    self = [self initWithClass:anObjectClass];
     if (self) {
         self.entity = entity;
         self.discardsInvalidObjectsOnInsert = NO;
@@ -171,9 +172,9 @@ static BOOL entityIdentificationInferenceEnabled = YES;
     return self;
 }
 
-- (id)initWithClass:(Class)objectClass
+- (id)initWithClass:(Class)anObjectClass
 {
-    self = [super initWithClass:objectClass];
+    self = [super initWithClass:anObjectClass];
     if (self) {
         self.mutableConnections = [NSMutableArray array];
     }
