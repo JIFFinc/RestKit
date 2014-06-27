@@ -24,7 +24,10 @@
 #import "ObjectMapping.h"
 #import "Network.h"
 #import "Support.h"
-#import "CoreData.h"
+
+#if __has_include("RKCoreData.h")
+#import "RKCoreData.h"
+#endif
 
 /**
  Set the App logging component. This header

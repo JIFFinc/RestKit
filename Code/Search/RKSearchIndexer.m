@@ -22,7 +22,7 @@
 #import "RKSearchWordEntity.h"
 #import "RKSearchWord.h"
 #import "RKLog.h"
-#import "RKSearchTokenizer.h"
+#import "RKStringTokenizer.h"
 #import "NSManagedObjectContext+RKAdditions.h"
 
 // Set Logging Component
@@ -159,7 +159,7 @@ NSString * const RKSearchableAttributeNamesUserInfoKey = @"RestKitSearchableAttr
             return NSNotFound;
         }
 
-        RKSearchTokenizer *searchTokenizer = [RKSearchTokenizer new];
+        RKStringTokenizer *searchTokenizer = [RKStringTokenizer new];
         searchTokenizer.stopWords = self.stopWords;
 
         __block NSUInteger searchWordCount;
@@ -295,25 +295,26 @@ NSString * const RKSearchableAttributeNamesUserInfoKey = @"RestKitSearchableAttr
     NSSet *candidateObjects = [[NSSet setWithSet:[userInfo objectForKey:NSInsertedObjectsKey]] setByAddingObjectsFromSet:[userInfo objectForKey:NSUpdatedObjectsKey]];
     NSSet *objectsToIndex = [self objectsToIndexFromCandidateObjects:candidateObjects checkChangedValues:NO];    
     
-    NSMutableSet *failedObjectIDs = [NSMutableSet set];
+    NSMutableSet *__unused failedObjectIDs = [NSMutableSet set];
     
     // Enqueue an operation for each object to index
     NSArray *objectIDsForObjectsToIndex = [objectsToIndex valueForKey:@"objectID"];
+    __weak __typeof(&*self)weakSelf = self;
     __block NSBlockOperation *indexingOperation = [NSBlockOperation blockOperationWithBlock:^{
         if ([indexingOperation isCancelled]) return;
-        [self.indexingContext performBlockAndWait:^{
+        [weakSelf.indexingContext performBlockAndWait:^{
             for (NSManagedObjectID *objectID in objectIDsForObjectsToIndex) {
                 if ([indexingOperation isCancelled]) return;
                 NSError *error = nil;
-                NSManagedObject *managedObject = [self.indexingContext existingObjectWithID:objectID error:&error];
-                NSAssert(managedObject == nil || [[managedObject managedObjectContext] isEqual:self.indexingContext], @"Serious Core Data error: Asked for an `NSManagedObject` with ID %@ in indexing context %@, but got one in %@", objectID, self.indexingContext, [managedObject managedObjectContext]);
+                NSManagedObject *managedObject = [weakSelf.indexingContext existingObjectWithID:objectID error:&error];
+                NSAssert(managedObject == nil || [[managedObject managedObjectContext] isEqual:weakSelf.indexingContext], @"Serious Core Data error: Asked for an `NSManagedObject` with ID %@ in indexing context %@, but got one in %@", objectID, weakSelf.indexingContext, [managedObject managedObjectContext]);
                 if (managedObject && error == nil) {
                     BOOL performIndexing = YES;
-                    if ([self.delegate respondsToSelector:@selector(searchIndexer:shouldIndexManagedObject:)]) {
-                        performIndexing = [self.delegate searchIndexer:self shouldIndexManagedObject:managedObject];
+                    if ([weakSelf.delegate respondsToSelector:@selector(searchIndexer:shouldIndexManagedObject:)]) {
+                        performIndexing = [weakSelf.delegate searchIndexer:weakSelf shouldIndexManagedObject:managedObject];
                     }
                     if (performIndexing) {
-                        [self indexManagedObject:managedObject withProgressBlock:^(NSManagedObject *managedObject, RKSearchWord *searchWord, BOOL *stop) {
+                        [weakSelf indexManagedObject:managedObject withProgressBlock:^(NSManagedObject *managedObject, RKSearchWord *searchWord, BOOL *stop) {
                             // Stop the indexing process if we have been cancelled
                             if ([indexingOperation isCancelled]) *stop = YES;
                         }];
@@ -327,7 +328,7 @@ NSString * const RKSearchableAttributeNamesUserInfoKey = @"RestKitSearchableAttr
             if ([indexingOperation isCancelled]) return;
             NSError *error = nil;
             RKLogInfo(@"Indexing completed. Saving indexing context...");
-            BOOL success = [self.indexingContext saveToPersistentStore:&error];
+            BOOL success = [weakSelf.indexingContext saveToPersistentStore:&error];
             if (! success) {
                 RKLogError(@"Failed to save indexing context: %@", error);
             }

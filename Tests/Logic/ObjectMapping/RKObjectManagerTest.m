@@ -29,6 +29,8 @@
 #import "RKDynamicMapping.h"
 #import "RKTestAddress.h"
 #import "RKPost.h"
+#import "RKObjectRequestOperation.h"
+#import "RKManagedObjectRequestOperation.h"
 
 @interface RKSubclassedTestModel : RKObjectMapperTestModel
 @end
@@ -496,7 +498,7 @@
     expect(request.HTTPMethod).to.equal(@"PATCH");
     expect(request.HTTPBody).notTo.beNil();
     NSString *string = [[NSString alloc] initWithData:request.HTTPBody encoding:NSUTF8StringEncoding];
-    expect(string).to.equal(@"key=value");
+    expect(string).to.equal(@"human[name]&key=value");
 }
 
 - (void)testAFHTTPClientCanModifyRequestsBuiltByObjectManager
@@ -1547,6 +1549,125 @@
     }];
     expect(human.name).will.beNil();
     expect(human.weight).will.equal(@131.3);
+}
+
+@end
+
+@interface RKObjectManagerNonCoreDataTest: RKTestCase
+@property (nonatomic, strong) RKObjectManager *objectManager;
+
+@property (nonatomic, strong) RKResponseDescriptor *addressResponseDescriptor;
+@property (nonatomic, strong) RKResponseDescriptor *coordinateResponseDescriptor;
+
+@end
+
+@implementation RKObjectManagerNonCoreDataTest
+
+-(void)setUp{
+    [RKTestFactory setUp];
+    self.objectManager = [RKTestFactory objectManager];
+    [RKObjectManager setSharedManager:self.objectManager];
+    
+    RKObjectMapping *addressMapping = [RKObjectMapping mappingForClass:[RKTestAddress class]];
+    [addressMapping addAttributeMappingsFromArray:@[@"addressID", @"city", @"state", @"country"]];
+    
+    RKObjectMapping *coordinateMapping = [RKObjectMapping mappingForClass:[RKTestCoordinate class]];
+    [coordinateMapping addAttributeMappingsFromArray:@[@""]];
+    
+    self.addressResponseDescriptor = [RKResponseDescriptor responseDescriptorWithMapping:addressMapping method:RKRequestMethodGET pathPattern:@"address" keyPath:@"address" statusCodes:RKStatusCodeIndexSetForClass(RKStatusCodeClassSuccessful)];
+    self.coordinateResponseDescriptor = [RKResponseDescriptor responseDescriptorWithMapping:coordinateMapping method:RKRequestMethodPOST pathPattern:@"coordinate" keyPath:nil statusCodes:RKStatusCodeIndexSetForClass(RKStatusCodeClassSuccessful)];
+ 
+    [self.objectManager.router.routeSet addRoute:[RKRoute routeWithClass:[RKTestCoordinate class] pathPattern:@"coordinate" method:RKRequestMethodPOST]];
+    [self.objectManager addResponseDescriptorsFromArray:@[self.addressResponseDescriptor, self.coordinateResponseDescriptor]];
+}
+
+-(void)tearDown{
+    [RKTestFactory tearDown];
+}
+
+-(void)testThatAppropriateObjectRequestOperationOnlyContainsResponseDescriptorsThatMatchObjectAndMethod{
+    RKTestCoordinate *coordinate = [RKTestCoordinate new];
+    RKObjectRequestOperation *operation = [self.objectManager appropriateObjectRequestOperationWithObject:coordinate method:RKRequestMethodPOST path:@"coordinate" parameters:nil];
+    expect(operation.responseDescriptors.count).to.equal(1);
+    expect(operation.responseDescriptors[0]).to.equal(self.coordinateResponseDescriptor);
+}
+
+-(void)testThatAppropriateObjectRequestOperationOnlyContainsResponseDescriptorsThatMatchPahtAndMethod{
+    RKObjectRequestOperation *operation = [self.objectManager appropriateObjectRequestOperationWithObject:nil method:RKRequestMethodGET path:@"address" parameters:nil];
+    expect(operation.responseDescriptors.count).to.equal(1);
+    expect(operation.responseDescriptors[0]).to.equal(self.addressResponseDescriptor);
+}
+
+
+@end
+
+RKRequestDescriptor *RKRequestDescriptorFromArrayMatchingObjectAndRequestMethod(NSArray *requestDescriptors, id object, RKRequestMethod requestMethod);
+
+@interface RKRequestDescriptorFromArrayMatchingObjectAndRequestMethodTest : RKTestCase
+
+@property (nonatomic, strong) RKRequestDescriptor *exactClassAndExactMethodDescriptor;
+@property (nonatomic, strong) RKRequestDescriptor *exactClassAndBitwiseMethodDescriptor;
+@property (nonatomic, strong) RKRequestDescriptor *superclassAndExactMethodDescriptor;
+@property (nonatomic, strong) RKRequestDescriptor *superclassAndBitwiseMethodDescriptor;
+@property (nonatomic, strong) RKRequestDescriptor *nonMatchingClassAndExactMethodDescriptor;
+@end
+
+@implementation RKRequestDescriptorFromArrayMatchingObjectAndRequestMethodTest
+
+- (void)setUp
+{
+    RKObjectMapping *requestMapping = [RKObjectMapping requestMapping];
+    
+    // Exact
+    _exactClassAndExactMethodDescriptor = [RKRequestDescriptor requestDescriptorWithMapping:requestMapping objectClass:[RKSubclassedTestModel class] rootKeyPath:nil method:RKRequestMethodPOST];
+    _exactClassAndBitwiseMethodDescriptor = [RKRequestDescriptor requestDescriptorWithMapping:requestMapping objectClass:[RKSubclassedTestModel class] rootKeyPath:nil method:RKRequestMethodPOST | RKRequestMethodPUT];
+    
+    // Superclass
+    _superclassAndExactMethodDescriptor = [RKRequestDescriptor requestDescriptorWithMapping:requestMapping objectClass:[RKObjectMapperTestModel class] rootKeyPath:@"superclass" method:RKRequestMethodPOST];
+    _superclassAndBitwiseMethodDescriptor = [RKRequestDescriptor requestDescriptorWithMapping:requestMapping objectClass:[RKObjectMapperTestModel class] rootKeyPath:@"superclass" method:RKRequestMethodPOST | RKRequestMethodPUT];
+    
+    // Non-matching
+    _nonMatchingClassAndExactMethodDescriptor = [RKRequestDescriptor requestDescriptorWithMapping:requestMapping objectClass:[RKTestUser class] rootKeyPath:@"subclassed" method:RKRequestMethodPOST];
+}
+
+- (void)testExactClassAndExactMethodMatchHasHighestPrecedence
+{    
+    RKSubclassedTestModel *object = [RKSubclassedTestModel new];
+    NSArray *descriptors = @[ _exactClassAndExactMethodDescriptor, _exactClassAndBitwiseMethodDescriptor, _superclassAndExactMethodDescriptor, _superclassAndBitwiseMethodDescriptor,  _nonMatchingClassAndExactMethodDescriptor ];
+    RKRequestDescriptor *requestDescriptor = RKRequestDescriptorFromArrayMatchingObjectAndRequestMethod(descriptors, object, RKRequestMethodPOST);
+    expect(requestDescriptor).to.equal(_exactClassAndExactMethodDescriptor);
+}
+
+- (void)testExactClassAndBitwiseMethodMatchHasSecondHighestPrecedence
+{
+    RKSubclassedTestModel *object = [RKSubclassedTestModel new];
+    NSArray *descriptors = @[ _exactClassAndBitwiseMethodDescriptor, _superclassAndExactMethodDescriptor, _superclassAndBitwiseMethodDescriptor,  _nonMatchingClassAndExactMethodDescriptor ];
+    RKRequestDescriptor *requestDescriptor = RKRequestDescriptorFromArrayMatchingObjectAndRequestMethod(descriptors, object, RKRequestMethodPOST);
+    expect(requestDescriptor).to.equal(_exactClassAndBitwiseMethodDescriptor);
+}
+
+- (void)testSuperclassAndExactMethodMatchHasThirdHighestPrecedence
+{
+    RKSubclassedTestModel *object = [RKSubclassedTestModel new];
+    NSArray *descriptors = @[ _superclassAndExactMethodDescriptor, _superclassAndBitwiseMethodDescriptor,  _nonMatchingClassAndExactMethodDescriptor ];
+    RKRequestDescriptor *requestDescriptor = RKRequestDescriptorFromArrayMatchingObjectAndRequestMethod(descriptors, object, RKRequestMethodPOST);
+    expect(requestDescriptor).to.equal(_superclassAndExactMethodDescriptor);
+}
+
+- (void)testSuperclassAndBitwiseMethodMatchHasThirdHighestPrecedence
+{
+    RKSubclassedTestModel *object = [RKSubclassedTestModel new];
+    NSArray *descriptors = @[ _superclassAndBitwiseMethodDescriptor,  _nonMatchingClassAndExactMethodDescriptor ];
+    RKRequestDescriptor *requestDescriptor = RKRequestDescriptorFromArrayMatchingObjectAndRequestMethod(descriptors, object, RKRequestMethodPOST);
+    expect(requestDescriptor).to.equal(_superclassAndBitwiseMethodDescriptor);
+}
+
+- (void)testThatNonmatchingClassesReturnNil
+{
+    RKSubclassedTestModel *object = [RKSubclassedTestModel new];
+    NSArray *descriptors = @[ _nonMatchingClassAndExactMethodDescriptor ];
+    RKRequestDescriptor *requestDescriptor = RKRequestDescriptorFromArrayMatchingObjectAndRequestMethod(descriptors, object, RKRequestMethodPOST);
+    expect(requestDescriptor).to.beNil();
 }
 
 @end

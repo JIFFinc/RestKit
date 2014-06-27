@@ -27,6 +27,7 @@
 #import "RKHuman.h"
 #import "RKTestUser.h"
 #import "RKCat.h"
+#import "RKCLLocationValueTransformer.h"
 
 @interface RKMIMETypeSerialization ()
 @property (nonatomic, strong) NSMutableArray *registrations;
@@ -46,6 +47,9 @@
     
     [RKMIMETypeSerialization sharedSerialization].registrations = [NSMutableArray array];
     [[RKMIMETypeSerialization sharedSerialization] addRegistrationsForKnownSerializations];
+
+    // Reset the default transformer
+    [RKValueTransformer setDefaultValueTransformer:nil];
 }
 
 - (void)tearDown
@@ -81,8 +85,11 @@
     RKRequestDescriptor *requestDescriptor = [RKRequestDescriptor requestDescriptorWithMapping:mapping objectClass:[NSDictionary class] rootKeyPath:nil method:RKRequestMethodAny];
     NSDictionary *parameters = [RKObjectParameterization parametersWithObject:object requestDescriptor:requestDescriptor error:&error];
     expect(error).to.beNil();
-    expect(parameters[@"date-form-name"]).to.equal(@"1970-01-01T00:00:00Z");
+    expect(parameters[@"date-form-name"]).to.equal(@"1970-01-01T00:00:00.000Z");
 }
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 - (void)testShouldSerializeADateToAStringUsingThePreferredDateFormatter
 {
@@ -105,6 +112,32 @@
     expect(string).to.equal(@"date-form-name=01/01/1970&key1-form-name=value1");
 }
 
+#pragma clang diagnostic pop
+
+- (void)testShouldSerializeADateToAStringUsingTheAttributeMappingValueTransformer
+{
+    NSDictionary *object = [NSDictionary dictionaryWithObjectsAndKeys:@"value1", @"key1", [NSDate dateWithTimeIntervalSince1970:0], @"date", nil];
+    RKObjectMapping *mapping = [RKObjectMapping requestMapping];
+    NSDateFormatter *dateFormatter = [NSDateFormatter new];
+    dateFormatter.dateFormat = @"MM/dd/yyyy";
+    dateFormatter.timeZone = [NSTimeZone timeZoneForSecondsFromGMT:0];
+    RKAttributeMapping *propertyMapping = [RKAttributeMapping attributeMappingFromKeyPath:@"date" toKeyPath:@"date-form-name"];
+
+    propertyMapping.valueTransformer = dateFormatter;
+
+    [mapping addPropertyMapping:[RKAttributeMapping attributeMappingFromKeyPath:@"key1" toKeyPath:@"key1-form-name"]];
+    [mapping addPropertyMapping: propertyMapping];
+
+    NSError *error = nil;
+    RKRequestDescriptor *requestDescriptor = [RKRequestDescriptor requestDescriptorWithMapping:mapping objectClass:[NSDictionary class] rootKeyPath:nil method:RKRequestMethodAny];
+    NSDictionary *parameters = [RKObjectParameterization parametersWithObject:object requestDescriptor:requestDescriptor error:&error];
+
+    NSData *data = [RKMIMETypeSerialization dataFromObject:parameters MIMEType:RKMIMETypeFormURLEncoded error:&error];
+    NSString *string = [[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+    expect(error).to.beNil();
+    expect(string).to.equal(@"date-form-name=01/01/1970&key1-form-name=value1");
+}
+
 - (void)testShouldSerializeADateToJSON
 {
     NSDictionary *object = [NSDictionary dictionaryWithObjectsAndKeys:@"value1", @"key1", [NSDate dateWithTimeIntervalSince1970:0], @"date", nil];
@@ -120,7 +153,7 @@
     NSString *string = [[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
 
     expect(error).to.beNil();
-    expect(string).to.equal(@"{\"key1-form-name\":\"value1\",\"date-form-name\":\"1970-01-01T00:00:00Z\"}");
+    expect(string).to.equal(@"{\"key1-form-name\":\"value1\",\"date-form-name\":\"1970-01-01T00:00:00.000Z\"}");
 }
 
 - (void)testShouldSerializeNSDecimalNumberAttributesToJSON
@@ -195,7 +228,7 @@
     RKRequestDescriptor *requestDescriptor = [RKRequestDescriptor requestDescriptorWithMapping:mapping objectClass:[NSDictionary class] rootKeyPath:nil method:RKRequestMethodAny];
     NSDictionary *parameters = [RKObjectParameterization parametersWithObject:object requestDescriptor:requestDescriptor error:&error];
     expect(error).to.beNil();
-    expect(parameters).to.equal(@{});
+    expect(parameters).to.equal(@{ @"key1-form-name": [NSNull null] });
 }
 
 - (void)testEmptyParameterizationRespectsRootKeyPath
@@ -208,7 +241,7 @@
     RKRequestDescriptor *requestDescriptor = [RKRequestDescriptor requestDescriptorWithMapping:mapping objectClass:[NSDictionary class] rootKeyPath:@"root" method:RKRequestMethodAny];
     NSDictionary *parameters = [RKObjectParameterization parametersWithObject:object requestDescriptor:requestDescriptor error:&error];
     expect(error).to.beNil();
-    expect(parameters).to.equal(@{@"root":@{}});
+    expect(parameters).to.equal(@{ @"root":@{ @"key1-form-name": [NSNull null] } });
 }
 
 - (void)testShouldSerializeNestedObjectsContainingDatesToJSON
@@ -233,12 +266,7 @@
     NSData *data = [RKMIMETypeSerialization dataFromObject:parameters MIMEType:RKMIMETypeJSON error:&error];
     NSString *string = [[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
 
-    // Encodes differently on iOS / OS X
-    #if TARGET_OS_IPHONE
-    expect(string).to.equal(@"{\"stringTest\":\"The string\",\"hasOne\":{\"date\":\"1970-01-01T00:00:00Z\"}}");
-    #else
-    expect(string).to.equal(@"{\"hasOne\":{\"date\":\"1970-01-01T00:00:00Z\"},\"stringTest\":\"The string\"}");
-    #endif
+    expect((@[@"{\"stringTest\":\"The string\",\"hasOne\":{\"date\":\"1970-01-01T00:00:00.000Z\"}}", @"{\"hasOne\":{\"date\":\"1970-01-01T00:00:00.000Z\"},\"stringTest\":\"The string\"}"])).to.contain(string);
 }
 
 - (void)testShouldEncloseTheSerializationInAContainerIfRequested
@@ -278,7 +306,7 @@
     
     NSData *data = [RKMIMETypeSerialization dataFromObject:parameters MIMEType:RKMIMETypeJSON error:&error];
     NSString *string = [[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
-    expect(string).to.equal(@"{\"hasMany\":[{\"date\":\"1970-01-01T00:00:00Z\"}],\"stringTest\":\"The string\"}");
+    expect(string).to.equal(@"{\"hasMany\":[{\"date\":\"1970-01-01T00:00:00.000Z\"}],\"stringTest\":\"The string\"}");
 }
 
 - (void)testShouldSerializeAnNSNumberContainingABooleanToTrueFalseIfRequested
@@ -404,7 +432,7 @@
     
     expect(error).to.beNil();
     // Unordered dictionary handling
-    NSArray *serializations = @[ @"{\"is_valid\":0,\"name\":\"Whatever\",\"is_boolean\":true}", @"{\"name\":\"Whatever\",\"is_valid\":0,\"is_boolean\":true}" ];
+    NSArray *serializations = @[ @"{\"is_valid\":0,\"name\":\"Whatever\",\"is_boolean\":true}", @"{\"name\":\"Whatever\",\"is_valid\":0,\"is_boolean\":true}", @"{\"name\":\"Whatever\",\"is_valid\":false,\"is_boolean\":true}"];
     expect(serializations).to.contain(string);
 }
 
@@ -448,7 +476,22 @@
     expect(string).to.equal(@"{\"name\":\"Blake Watters\",\"happy\":false}");
 }
 
-- (void)testSerializingWithDynamicNestingAttribute
+- (void)testSerializingWithDynamicNestingAttributeWithBraces
+{
+    NSDictionary *object = @{ @"name" : @"blake", @"occupation" : @"Hacker" };
+    RKObjectMapping *mapping = [RKObjectMapping requestMapping];
+    [mapping addAttributeMappingToKeyOfRepresentationFromAttribute:@"name"];
+    [mapping addPropertyMapping:[RKAttributeMapping attributeMappingFromKeyPath:@"name" toKeyPath:@"{name}.name"]];
+    [mapping addPropertyMapping:[RKAttributeMapping attributeMappingFromKeyPath:@"occupation" toKeyPath:@"{name}.job"]];
+
+    NSError *error = nil;
+    RKRequestDescriptor *requestDescriptor = [RKRequestDescriptor requestDescriptorWithMapping:mapping objectClass:[NSDictionary class] rootKeyPath:nil method:RKRequestMethodAny];
+    NSDictionary *parameters = [RKObjectParameterization parametersWithObject:object requestDescriptor:requestDescriptor error:&error];
+    NSDictionary *expected = @{@"blake": @{@"name": @"blake", @"job": @"Hacker"}};
+    expect(parameters).to.equal(expected);
+}
+
+- (void)testSerializingWithDynamicNestingAttributeWithParentheses
 {
     NSDictionary *object = @{ @"name" : @"blake", @"occupation" : @"Hacker" };
     RKObjectMapping *mapping = [RKObjectMapping requestMapping];
@@ -478,7 +521,46 @@
     NSString *string = [[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
     
     expect(error).to.beNil();
-    expect(string).to.equal(@"{\"nestedPath\":{\"birthday\":\"1970-01-01T00:00:00Z\"}}");
+    expect(string).to.equal(@"{\"nestedPath\":{\"birthday\":\"1970-01-01T00:00:00.000Z\"}}");
+}
+
+- (void)testParameterizationFromLocationToNestedDictionaryUsingValueTransformer
+{
+    RKTestUser *user = [RKTestUser new];
+    user.name = @"Blake";
+    user.location = [[CLLocation alloc] initWithLatitude:125.55 longitude:200.5];
+    RKObjectMapping *userMapping = [RKObjectMapping requestMapping];
+    [userMapping addAttributeMappingsFromArray:@[ @"name" ]];
+    RKAttributeMapping *attributeMapping = [RKAttributeMapping attributeMappingFromKeyPath:@"location" toKeyPath:@"location"];
+    attributeMapping.propertyValueClass = [NSDictionary class];
+    attributeMapping.valueTransformer = [RKCLLocationValueTransformer locationValueTransformerWithLatitudeKey:@"latitude" longitudeKey:@"longitude"];
+    [userMapping addPropertyMapping:attributeMapping];
+
+    NSError *error = nil;
+    RKRequestDescriptor *requestDescriptor = [RKRequestDescriptor requestDescriptorWithMapping:userMapping objectClass:[RKTestUser class] rootKeyPath:nil method:RKRequestMethodAny];
+    NSDictionary *parameters = [RKObjectParameterization parametersWithObject:user requestDescriptor:requestDescriptor error:&error];
+
+    expect(parameters).notTo.beNil();
+    expect(error).to.beNil();
+    expect(parameters[@"location"]).notTo.beNil();
+    expect(parameters[@"location"][@"latitude"]).to.equal(125.55);
+    expect(parameters[@"location"][@"longitude"]).to.equal(200.5);
+}
+
+- (void)testSerializingToNull
+{
+    RKTestUser *blake = [RKTestUser new];
+    blake.name = @"Blake Watters";
+    blake.website = nil;
+
+    RKObjectMapping *mapping = [RKObjectMapping requestMapping];
+    [mapping addAttributeMappingsFromArray:@[ @"name", @"website" ]];
+
+    NSError *error = nil;
+    RKRequestDescriptor *requestDescriptor = [RKRequestDescriptor requestDescriptorWithMapping:mapping objectClass:[RKTestUser class] rootKeyPath:nil method:RKRequestMethodAny];
+    NSDictionary *parameters = [RKObjectParameterization parametersWithObject:blake requestDescriptor:requestDescriptor error:&error];
+    expect(error).to.beNil();
+    expect(parameters).to.equal((@{ @"name": @"Blake Watters", @"website": [NSNull null] }));
 }
 
 @end
@@ -598,9 +680,10 @@ typedef enum {
     RKObjectMapping *serializationMapping = [userMapping inverseMapping];
     NSDictionary *params = [RKObjectParameterization parametersWithObject:user requestDescriptor:[RKRequestDescriptor requestDescriptorWithMapping:serializationMapping objectClass:[RKTestUser class] rootKeyPath:nil method:RKRequestMethodAny] error:nil];
     NSError *error = nil;
-    NSString *JSON = [[NSString alloc] initWithData:[RKMIMETypeSerialization dataFromObject:params MIMEType:RKMIMETypeJSON error:nil] encoding:NSUTF8StringEncoding];
+    NSData *JSON = [RKMIMETypeSerialization dataFromObject:params MIMEType:RKMIMETypeJSON error:nil];
+    NSDictionary *jsonDictionary = [NSJSONSerialization JSONObjectWithData:JSON options:0 error:nil];
     assertThat(error, is(nilValue()));
-    assertThat(JSON, is(equalTo(@"{\"name\":\"Blake Watters\",\"address\":{\"state\":\"North Carolina\"}}")));
+    assertThat(jsonDictionary, is(equalTo(params)));
 }
 
 - (void)testShouldSerializeHasManyRelationshipsToJSON
@@ -619,13 +702,13 @@ typedef enum {
     address2.city = @"New York City";
     user.friends = [NSArray arrayWithObjects:address1, address2, nil];
 
-
     RKObjectMapping *serializationMapping = [userMapping inverseMapping];
     NSDictionary *params = [RKObjectParameterization parametersWithObject:user requestDescriptor:[RKRequestDescriptor requestDescriptorWithMapping:serializationMapping objectClass:[RKTestUser class] rootKeyPath:nil method:RKRequestMethodAny] error:nil];
     NSError *error = nil;
-    NSString *JSON = [[NSString alloc] initWithData:[RKMIMETypeSerialization dataFromObject:params MIMEType:RKMIMETypeJSON error:nil] encoding:NSUTF8StringEncoding];
+    NSData *JSON = [RKMIMETypeSerialization dataFromObject:params MIMEType:RKMIMETypeJSON error:nil];
+    NSDictionary *jsonDictionary = [NSJSONSerialization JSONObjectWithData:JSON options:0 error:nil];
     assertThat(error, is(nilValue()));
-    assertThat(JSON, is(equalTo(@"{\"name\":\"Blake Watters\",\"friends\":[{\"city\":\"Carrboro\"},{\"city\":\"New York City\"}]}")));
+    assertThat(jsonDictionary, is(equalTo(params)));
 }
 
 - (void)testShouldSerializeManagedHasManyRelationshipsToJSON

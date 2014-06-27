@@ -65,7 +65,10 @@
 
     // Update date format so that we can parse Twitter dates properly
     // Wed Sep 29 15:31:08 +0000 2010
-    [RKObjectMapping addDefaultDateFormatterForString:@"E MMM d HH:mm:ss Z y" inTimeZone:nil];
+    NSDateFormatter *dateFormatter = [NSDateFormatter new];
+    dateFormatter.dateFormat = @"E MMM d HH:mm:ss Z y";
+    dateFormatter.timeZone = [NSTimeZone timeZoneForSecondsFromGMT:0];
+    [[RKValueTransformer defaultValueTransformer] insertValueTransformer:dateFormatter atIndex:0];
 
     // Register our mappings with the provider
     RKResponseDescriptor *responseDescriptor = [RKResponseDescriptor responseDescriptorWithMapping:tweetMapping
@@ -104,7 +107,7 @@
                               withMapping:userMapping
                                   keyPath:@"user"
                                     error:&error];
-    BOOL success = [importer finishImporting:&error];
+    success = [importer finishImporting:&error];
     if (success) {
         [importer logSeedingInfo];
     } else {
