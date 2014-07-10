@@ -614,27 +614,27 @@ BOOL RKDoesArrayOfResponseDescriptorsContainOnlyEntityMappings(NSArray *response
         if (weakSelf.targetObjectID
             && NSLocationInRange(weakSelf.HTTPRequestOperation.response.statusCode, RKStatusCodeRangeForClass(RKStatusCodeClassSuccessful))
             && [[[weakSelf.HTTPRequestOperation.request HTTPMethod] uppercaseString] isEqualToString:@"DELETE"]) {
-            success = [weakSelf deleteTargetObject:&error];
+            success = [weakSelf deleteTargetObject:&anError];
             if (! success || [weakSelf isCancelled]) {
-                return completionBlock(nil, error);
+                return completionBlock(nil, anError);
             }
         }
 
         if (!responseMappingError) {
-            success = [weakSelf deleteLocalObjectsMissingFromMappingResult:mappingResult error:&error];
+            success = [weakSelf deleteLocalObjectsMissingFromMappingResult:mappingResult error:&anError];
             if (! success || [weakSelf isCancelled]) {
-                return completionBlock(nil, error);
+                return completionBlock(nil, anError);
             }
         
             // Persist our mapped objects
-            success = [weakSelf obtainPermanentObjectIDsForInsertedObjects:&error];
+            success = [weakSelf obtainPermanentObjectIDsForInsertedObjects:&anError];
             if (! success || [weakSelf isCancelled]) {
-                return completionBlock(nil, error);
+                return completionBlock(nil, anError);
             }
             
-            success = [weakSelf saveContext:&error];
+            success = [weakSelf saveContext:&anError];
             if (! success || [weakSelf isCancelled]) {
-                return completionBlock(nil, error);
+                return completionBlock(nil, anError);
             }
         }
         
