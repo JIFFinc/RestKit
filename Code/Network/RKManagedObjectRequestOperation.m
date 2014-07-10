@@ -666,7 +666,7 @@ BOOL RKDoesArrayOfResponseDescriptorsContainOnlyEntityMappings(NSArray *response
                 RKLogWarning(@"Unable to delete object sent with `DELETE` request: Failed to retrieve object with objectID %@", self.targetObjectID);
                 RKLogCoreDataError(_blockError);
                 _blockSuccess = NO;
-                *anError = _blockError;
+                *error = _blockError;
             }
         }];
     }
