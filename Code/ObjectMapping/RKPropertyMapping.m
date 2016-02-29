@@ -18,8 +18,8 @@
 //  limitations under the License.
 //
 
-#import "RKPropertyMapping.h"
-#import "RKObjectMapping.h"
+#import <RestKit/ObjectMapping/RKObjectMapping.h>
+#import <RestKit/ObjectMapping/RKPropertyMapping.h>
 
 /**
  For consistency with URI Templates (and most web templating languages in general) we are transitioning
@@ -44,13 +44,15 @@ static NSString *RKStringByReplacingUnderscoresWithBraces(NSString *string)
     RKPropertyMapping *copy = [[[self class] allocWithZone:zone] init];
     copy.sourceKeyPath = self.sourceKeyPath;
     copy.destinationKeyPath = self.destinationKeyPath;
+    copy.propertyValueClass = self.propertyValueClass;
+    copy.valueTransformer = self.valueTransformer;
     return copy;
 }
 
 - (BOOL)isEqualToMapping:(RKPropertyMapping *)otherMapping
 {
     return [otherMapping isMemberOfClass:[self class]] &&
-            [self.sourceKeyPath isEqual:otherMapping.sourceKeyPath] &&
+            (self.sourceKeyPath == otherMapping.sourceKeyPath || [self.sourceKeyPath isEqual:otherMapping.sourceKeyPath]) &&
             [self.destinationKeyPath isEqual:otherMapping.destinationKeyPath];
 }
 

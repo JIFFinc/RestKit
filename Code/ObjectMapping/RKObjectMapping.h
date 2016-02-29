@@ -18,9 +18,10 @@
 //  limitations under the License.
 //
 
-#import "RKMacros.h"
-#import "RKMapping.h"
-#import "RKValueTransformers.h"
+#import <RestKit/ObjectMapping/RKMapping.h>
+#import <RestKit/Support/RKMacros.h>
+
+#import <RKValueTransformers/RKValueTransformers.h>
 
 @class RKPropertyMapping, RKAttributeMapping, RKRelationshipMapping;
 @protocol RKValueTransforming;
@@ -85,7 +86,7 @@
  @param objectClass The class that the mapping targets. Cannot be `nil`.
  @return The receiver, initialized with the given class.
  */
-- (id)initWithClass:(Class)objectClass;
+- (instancetype)initWithClass:(Class)objectClass;
 
 /**
  Returns an object mapping with an `objectClass` of `NSMutableDictionary`.
@@ -105,7 +106,7 @@
 /**
  The aggregate collection of attribute and relationship mappings within this object mapping.
  */
-@property (nonatomic, strong, readonly) NSArray *propertyMappings;
+@property (nonatomic, copy, readonly) NSArray *propertyMappings;
 
 /**
  Returns the property mappings of the receiver in a dictionary, where the keys are the source key paths and the values are instances of `RKAttributeMapping` or `RKRelationshipMapping`.
@@ -127,6 +128,20 @@
  The collection of attribute mappings within this object mapping.
  */
 @property (nonatomic, readonly) NSArray *attributeMappings;
+
+/**
+ The collection of single key attribute mappings within this object mapping.
+ 
+ These are mappings where the source key path is a single key, and not a key path with multiple components.
+ */
+@property (nonatomic, readonly) NSArray *keyAttributeMappings;
+
+/**
+ The collection of key path attribute mappings within this object mapping.
+ 
+ A key path mapping is one where the source key path is actually a path with multiple components.
+ */
+@property (nonatomic, readonly) NSArray *keyPathAttributeMappings;
 
 /**
  The collection of relationship mappings within this object mapping.
@@ -325,7 +340,7 @@
  
  @return A new mapping that will map the inverse of the receiver.
  */
-- (instancetype)inverseMapping;
+- (RKObjectMapping *)inverseMapping;
 
 /**
  Generates an inverse mapping with all property mappings of the receiver that pass the given test. Each `RKAttributeMapping` and `RKRelationshipMapping` added to the receiver is yielded to the block for evaluation. The block is also invoked for any nested relationships that are traversed during the inversion process.
@@ -334,7 +349,7 @@
  @return A new mapping that will map the inverse of the receiver.
  @see inverseMapping
  */
-- (instancetype)inverseMappingWithPropertyMappingsPassingTest:(BOOL (^)(RKPropertyMapping *propertyMapping))predicate;
+- (RKObjectMapping *)inverseMappingWithPropertyMappingsPassingTest:(BOOL (^)(RKPropertyMapping *propertyMapping))predicate;
 
 ///---------------------------------------------------
 /// @name Obtaining Information About the Target Class

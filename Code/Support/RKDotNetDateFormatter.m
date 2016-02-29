@@ -18,8 +18,8 @@
 //  limitations under the License.
 //
 
-#import "RKDotNetDateFormatter.h"
-#import "RKLog.h"
+#import <RestKit/Support/RKDotNetDateFormatter.h>
+#import <RestKit/Support/RKLog.h>
 
 static BOOL RKDotNetDateFormatterIsValidRange(NSRange rangeOfMatch)
 {
@@ -88,7 +88,7 @@ static NSTimeInterval RKDotNetDateFormatterMillisecondsFromSeconds(NSTimeInterva
     return [NSString stringWithFormat:@"/Date(%1.0lf%@)/", milliseconds, timeZoneOffset];
 }
 
-- (id)init
+- (instancetype)init
 {
     self = [super init];
     if (self) {

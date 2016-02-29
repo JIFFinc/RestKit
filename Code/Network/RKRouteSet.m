@@ -18,8 +18,8 @@
 //  limitations under the License.
 //
 
-#import "RKRouteSet.h"
-#import "RKPathMatcher.h"
+#import <RestKit/Network/RKPathMatcher.h>
+#import <RestKit/Network/RKRouteSet.h>
 
 @interface RKRouteSet ()
 
@@ -30,7 +30,7 @@
 @implementation RKRouteSet
 
 
-- (id)init
+- (instancetype)init
 {
     self = [super init];
     if (self) {

@@ -18,12 +18,14 @@
 //  limitations under the License.
 //
 
-#import "RKManagedObjectCaching.h"
+#import <RestKit/CoreData/RKManagedObjectCaching.h>
 
 /**
  Provides a fast managed object cache where-in object instances are retained in memory to avoid hitting the Core Data persistent store. Performance is greatly increased over fetch request based strategy at the expense of memory consumption.
  */
 @interface RKInMemoryManagedObjectCache : NSObject <RKManagedObjectCaching>
+
+- (instancetype)init __attribute__((unavailable("Invoke initWithManagedObjectContext: instead.")));
 
 ///---------------------------
 /// @name Initializing a Cache
@@ -35,6 +37,6 @@
  @param managedObjectContext The managed object context with which to initialize the receiver.
  @return The receiver, initialized with the given managed object context.
  */
-- (id)initWithManagedObjectContext:(NSManagedObjectContext *)managedObjectContext;
+- (instancetype)initWithManagedObjectContext:(NSManagedObjectContext *)managedObjectContext NS_DESIGNATED_INITIALIZER;
 
 @end

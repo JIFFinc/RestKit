@@ -21,9 +21,9 @@
 //  limitations under the License.
 //
 
-#import "RKRequestDescriptor.h"
-#import "RKObjectMapping.h"
-#import "RKDynamicMapping.h"
+#import <RestKit/Network/RKRequestDescriptor.h>
+#import <RestKit/ObjectMapping/RKDynamicMapping.h>
+#import <RestKit/ObjectMapping/RKObjectMapping.h>
 
 static void RKAssertValidMappingForRequestDescriptor(RKMapping *mapping)
 {
@@ -112,7 +112,7 @@ extern NSString *RKStringDescribingRequestMethod(RKRequestMethod method);
     [self.mapping isEqualToMapping:otherDescriptor.mapping] &&
     self.objectClass == otherDescriptor.objectClass &&
     self.method == otherDescriptor.method &&
-    [self.rootKeyPath isEqualToString:otherDescriptor.rootKeyPath];
+    ((self.rootKeyPath == otherDescriptor.rootKeyPath) || [self.rootKeyPath isEqualToString:otherDescriptor.rootKeyPath]);
 }
 
 @end
