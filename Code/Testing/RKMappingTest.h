@@ -19,8 +19,8 @@
 //
 
 #import <Foundation/Foundation.h>
-#import "RKMappingOperation.h"
-#import "RKPropertyMappingTestExpectation.h"
+#import <RestKit/ObjectMapping/RKMappingOperation.h>
+#import <RestKit/Testing/RKPropertyMappingTestExpectation.h>
 
 @protocol RKMappingOperationDataSource, RKManagedObjectCaching;
 
@@ -104,7 +104,7 @@ extern NSString * const RKMappingTestExpectationErrorKey;
  @param destinationObject The destionation object being to.
  @return The receiver, initialized with mapping, sourceObject and destinationObject.
  */
-- (id)initWithMapping:(RKMapping *)mapping sourceObject:(id)sourceObject destinationObject:(id)destinationObject;
+- (instancetype)initWithMapping:(RKMapping *)mapping sourceObject:(id)sourceObject destinationObject:(id)destinationObject NS_DESIGNATED_INITIALIZER;
 
 ///----------------------------
 /// @name Managing Expectations
@@ -155,7 +155,7 @@ extern NSString * const RKMappingTestExpectationErrorKey;
 
  @return `YES` if all expectations were met, else `NO`.
  */
-- (BOOL)evaluate;
+@property (nonatomic, readonly) BOOL evaluate;
 
 ///-------------------------
 /// @name Test Configuration

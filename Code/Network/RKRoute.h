@@ -18,7 +18,7 @@
 //  limitations under the License.
 //
 
-#import "RKHTTPUtilities.h"
+#import <RestKit/ObjectMapping/RKHTTPUtilities.h>
 
 /**
  The `RKRoute` class models a single routable path pattern in use by the application. A route can be combined with an `NSURL` base URL and interpolated with an object to produce a new fully hydrated URL object. Routes are always instantiated with a path pattern and metadata to provide for the subsequent identification of the defined route.
@@ -122,20 +122,20 @@
 
  @return YES if the receiver is a named route, else NO.
  */
-- (BOOL)isNamedRoute;
+@property (nonatomic, getter=isNamedRoute, readonly) BOOL namedRoute;
 
 /**
  Determines if the receiver is a class route.
 
  @return YES if the receiver is a class route, else NO.
  */
-- (BOOL)isClassRoute;
+@property (nonatomic, getter=isClassRoute, readonly) BOOL classRoute;
 
 /**
  Determines if the receiver is a relationship route.
 
  @return YES if the receiver is a relationship route, else NO.
  */
-- (BOOL)isRelationshipRoute;
+@property (nonatomic, getter=isRelationshipRoute, readonly) BOOL relationshipRoute;
 
 @end

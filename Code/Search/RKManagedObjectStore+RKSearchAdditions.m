@@ -18,9 +18,9 @@
 //  limitations under the License.
 //
 
+#import <RestKit/Search/RKManagedObjectStore+RKSearchAdditions.h>
+#import <RestKit/Search/RKSearchWordEntity.h>
 #import <objc/runtime.h>
-#import "RKManagedObjectStore+RKSearchAdditions.h"
-#import "RKSearchWordEntity.h"
 
 static char searchIndexerAssociationKey;
 
@@ -51,7 +51,7 @@ static char searchIndexerAssociationKey;
 
     if (! self.searchIndexer) [self createSearchIndexer];
 
-    NSEntityDescription *entity = [[self.managedObjectModel entitiesByName] objectForKey:entityName];
+    NSEntityDescription *entity = [self.managedObjectModel entitiesByName][entityName];
     [RKSearchIndexer addSearchIndexingToEntity:entity onAttributes:attributes];
 }
 

@@ -18,10 +18,10 @@
 //  limitations under the License.
 //
 
-#import "RKRouter.h"
-#import "RKRouteSet.h"
-#import "RKRoute.h"
-#import "RKPathMatcher.h"
+#import <RestKit/Network/RKPathMatcher.h>
+#import <RestKit/Network/RKRoute.h>
+#import <RestKit/Network/RKRouteSet.h>
+#import <RestKit/Network/RKRouter.h>
 #import <objc/runtime.h>
 
 @interface RKRouter ()
@@ -30,7 +30,7 @@
 
 @implementation RKRouter
 
-- (id)initWithBaseURL:(NSURL *)baseURL
+- (instancetype)initWithBaseURL:(NSURL *)baseURL
 {
     self = [super init];
     if (self) {
@@ -42,7 +42,7 @@
     return self;
 }
 
-- (id)init
+- (instancetype)init
 {
     @throw [NSException exceptionWithName:NSInternalInconsistencyException
                                    reason:[NSString stringWithFormat:@"%@ Failed to call designated initializer. Invoke initWithBaseURL: instead.", NSStringFromClass([self class])]

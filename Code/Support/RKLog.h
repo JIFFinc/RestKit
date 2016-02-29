@@ -24,7 +24,31 @@
  @see lcl_config_components_RK.h
  @see lcl_config_logger_RK.h
  */
-#import "lcl_RK.h"
+#import <RestKit/Support/lcl_RK.h>
+
+/**
+ * Protocol which classes can implement to determine how RestKit log messages actually get handled.
+ * There is a single "current" logging class installed, which all log messages will flow
+ * through.
+ */
+@protocol RKLogging
+
++ (void)logWithComponent:(_RKlcl_component_t)component
+                   level:(_RKlcl_level_t)level
+                    path:(const char *)file
+                    line:(uint32_t)line
+                function:(const char *)function
+                  format:(NSString *)format, ... NS_FORMAT_FUNCTION(6, 7);
+
+@end
+
+/**
+ * Functions to get and set the current RKLogging class.
+ */
+Class <RKLogging> RKGetLoggingClass(void);
+void RKSetLoggingClass(Class <RKLogging> loggingClass);
+
+
 
 /**
  RKLogComponent defines the active component within any given portion of RestKit

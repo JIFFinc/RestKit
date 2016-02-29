@@ -20,8 +20,8 @@
 
 #ifdef _COREDATADEFINES_H
 
-#import "RKConnectionTestExpectation.h"
-#import "RKObjectUtilities.h"
+#import <RestKit/ObjectMapping/RKObjectUtilities.h>
+#import <RestKit/Testing/RKConnectionTestExpectation.h>
 
 @interface RKConnectionTestExpectation ()
 @property (nonatomic, copy, readwrite) NSString *relationshipName;
@@ -36,7 +36,7 @@
     return [[self alloc] initWithRelationshipName:relationshipName attributes:attributes value:value];
 }
 
-- (id)initWithRelationshipName:(NSString *)relationshipName attributes:(NSDictionary *)attributes value:(id)value
+- (instancetype)initWithRelationshipName:(NSString *)relationshipName attributes:(NSDictionary *)attributes value:(id)value
 {
     NSParameterAssert(relationshipName);
     NSAssert(value == nil ||

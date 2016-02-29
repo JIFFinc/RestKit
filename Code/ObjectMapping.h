@@ -18,12 +18,12 @@
 //  limitations under the License.
 //
 
-#import "RKObjectManager.h"
-#import "RKObjectMapping.h"
-#import "RKAttributeMapping.h"
-#import "RKRelationshipMapping.h"
-#import "RKValueTransformers.h"
-#import "RKObjectParameterization.h"
-#import "RKMappingResult.h"
-#import "RKMapperOperation.h"
-#import "RKDynamicMapping.h"
+#import <RKValueTransformers/RKValueTransformers.h>
+
+#import <RestKit/ObjectMapping/RKAttributeMapping.h>
+#import <RestKit/ObjectMapping/RKDynamicMapping.h>
+#import <RestKit/ObjectMapping/RKErrorMessage.h>
+#import <RestKit/ObjectMapping/RKMapperOperation.h>
+#import <RestKit/ObjectMapping/RKMappingResult.h>
+#import <RestKit/ObjectMapping/RKObjectMapping.h>
+#import <RestKit/ObjectMapping/RKRelationshipMapping.h>

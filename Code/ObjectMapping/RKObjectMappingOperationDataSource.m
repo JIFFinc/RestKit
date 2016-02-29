@@ -18,8 +18,9 @@
 //  limitations under the License.
 //
 
-#import "RKObjectMappingOperationDataSource.h"
-#import "RKObjectMapping.h"
+#import <RestKit/ObjectMapping/RKMappingOperation.h>
+#import <RestKit/ObjectMapping/RKObjectMapping.h>
+#import <RestKit/ObjectMapping/RKObjectMappingOperationDataSource.h>
 
 @implementation RKObjectMappingOperationDataSource
 
@@ -27,6 +28,21 @@
            withMapping:(RKObjectMapping *)mapping inRelationship:(RKRelationshipMapping *)relationshipMapping
 {
     return [mapping.objectClass new];
+}
+
+- (id)mappingOperation:(RKMappingOperation *)mappingOperation targetObjectForMapping:(RKObjectMapping *)mapping inRelationship:(RKRelationshipMapping *)relationshipMapping
+{
+    return [mapping.objectClass new];
+}
+
+- (BOOL)mappingOperationShouldCollectMappingInfo:(RKMappingOperation *)mappingOperation
+{
+    return NO;
+}
+
+- (BOOL)mappingOperationShouldSetUnchangedValues:(RKMappingOperation *)mappingOperation
+{
+    return [mappingOperation isNewDestinationObject];
 }
 
 @end

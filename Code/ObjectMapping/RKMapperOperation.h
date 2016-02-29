@@ -19,11 +19,11 @@
 //
 
 #import <Foundation/Foundation.h>
-#import "RKObjectMapping.h"
-#import "RKMappingOperation.h"
-#import "RKMappingResult.h"
-#import "RKMappingOperationDataSource.h"
-#import "RKErrors.h"
+#import <RestKit/ObjectMapping/RKMappingOperation.h>
+#import <RestKit/ObjectMapping/RKMappingOperationDataSource.h>
+#import <RestKit/ObjectMapping/RKMappingResult.h>
+#import <RestKit/ObjectMapping/RKObjectMapping.h>
+#import <RestKit/Support/RKErrors.h>
 
 @protocol RKMapperOperationDelegate;
 
@@ -89,7 +89,7 @@
  @param mappingsDictionary An `NSDictionary` wherein the keys are mappable key paths in `object` and the values are `RKMapping` objects specifying how the representations at its key path are to be mapped.
  @return The receiver, initialized with the given object and and dictionary of key paths to mappings.
  */
-- (id)initWithRepresentation:(id)representation mappingsDictionary:(NSDictionary *)mappingsDictionary;
+- (instancetype)initWithRepresentation:(id)representation mappingsDictionary:(NSDictionary *)mappingsDictionary NS_DESIGNATED_INITIALIZER;
 
 ///------------------------------------------
 /// @name Accessing Mapping Result and Errors

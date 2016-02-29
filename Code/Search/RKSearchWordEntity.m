@@ -6,7 +6,7 @@
 //  Copyright (c) 2012 RestKit. All rights reserved.
 //
 
-#import "RKSearchWordEntity.h"
+#import <RestKit/Search/RKSearchWordEntity.h>
 
 NSString * const RKSearchWordEntityName = @"RKSearchWord";
 NSString * const RKSearchWordAttributeName = @"word";
@@ -14,7 +14,7 @@ NSString * const RKSearchWordsRelationshipName = @"searchWords";
 
 @implementation RKSearchWordEntity
 
-- (id)init
+- (instancetype)init
 {
     self = [super init];
     if (self) {
@@ -24,7 +24,7 @@ NSString * const RKSearchWordsRelationshipName = @"searchWords";
         [attribute setName:RKSearchWordAttributeName];
         [attribute setIndexed:YES];
         [attribute setAttributeType:NSStringAttributeType];
-        [self setProperties:[NSArray arrayWithObject:attribute]];
+        [self setProperties:@[attribute]];
     }
 
     return self;
