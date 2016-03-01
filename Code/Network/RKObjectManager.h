@@ -880,6 +880,10 @@ RKMappingResult, RKRequestDescriptor, RKResponseDescriptor;
  */
 - (RKPaginator *)paginatorWithPathPattern:(NSString *)pathPattern parameters:(NSDictionary *)parameters;
 
+//JIFF EDIT
+- (RKPaginator *)paginatorWithPathPattern:(NSString *)pathPattern andClass: (Class) paginatorClass;
+//END OF JIFF EDIT
+
 @end
 
 #ifdef _SYSTEMCONFIGURATION_H

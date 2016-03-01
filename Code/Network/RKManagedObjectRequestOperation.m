@@ -703,7 +703,7 @@ BOOL RKDoesArrayOfResponseDescriptorsContainOnlyEntityMappings(NSArray *response
         }];
         
         if (_blockObjects == nil) {
-            if (error) *error = _blockError;
+            if (anError) *anError = _blockError;
             return nil;
         }
         RKLogTrace(@"Fetched local objects matching URL with fetch request '%@': %@", fetchRequest, _blockObjects);
@@ -759,7 +759,7 @@ BOOL RKDoesArrayOfResponseDescriptorsContainOnlyEntityMappings(NSArray *response
     [self.privateContext performBlockAndWait:^{
         managedObjectsInMappingResult = RKManagedObjectsFromMappingResultWithMappingInfo(mappingResult, self.mappingInfo) ?: [NSSet set];
     }];
-    NSSet *localObjects = [self localObjectsFromFetchRequests:fetchRequests matchingRequestURL:error];
+    NSSet *localObjects = [self localObjectsFromFetchRequests:fetchRequests matchingRequestURL:anError];
     if (! localObjects) {
         RKLogError(@"Failed when attempting to fetch local candidate objects for orphan cleanup: %@", anError ? *anError : nil);
         return NO;
@@ -839,7 +839,7 @@ BOOL RKDoesArrayOfResponseDescriptorsContainOnlyEntityMappings(NSArray *response
             }];
         }
     } else {
-        if (error) *error = localError;
+        if (anError) *anError = localError;
         // Logging the error requires calling -[NSManagedObject description] which
         // can only be done on the context's queue
         [failedContext performBlock:^{
@@ -865,7 +865,7 @@ BOOL RKDoesArrayOfResponseDescriptorsContainOnlyEntityMappings(NSArray *response
         hasChanges = [self.privateContext hasChanges];
     }];
     if (hasChanges) {
-        return [self saveContext:self.privateContext error:error];
+        return [self saveContext:self.privateContext error:anError];
     } else if ([self.targetObject isKindOfClass:[NSManagedObject class]]) {
         NSManagedObjectContext *context = [(NSManagedObject *)self.targetObject managedObjectContext];
         __block BOOL isNew = NO;
