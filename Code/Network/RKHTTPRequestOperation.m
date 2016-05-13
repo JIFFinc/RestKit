@@ -18,11 +18,11 @@
 //  limitations under the License.
 //
 
-#import <RestKit/Network/RKHTTPRequestOperation.h>
-#import <RestKit/ObjectMapping/RKHTTPUtilities.h>
-#import <RestKit/Support/RKLog.h>
-#import <RestKit/Support/RKMIMETypes.h>
-#import <RestKit/Support/lcl_RK.h>
+#import "RKHTTPRequestOperation.h"
+#import "RKLog.h"
+#import "lcl_RK.h"
+#import "RKHTTPUtilities.h"
+#import "RKMIMETypes.h"
 
 extern NSString * const RKErrorDomain;
 
@@ -111,13 +111,6 @@ static BOOL RKResponseRequiresContentTypeMatch(NSHTTPURLResponse *response, NSUR
 }
 
 #pragma mark - NSURLConnectionDelegate methods
-
-- (void)connection:(NSURLConnection *)connection didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
-{
-    [super connection:connection didReceiveAuthenticationChallenge:challenge];
-
-    RKLogDebug(@"Received authentication challenge");
-}
 
 - (NSURLRequest *)connection:(NSURLConnection *)connection willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse
 {

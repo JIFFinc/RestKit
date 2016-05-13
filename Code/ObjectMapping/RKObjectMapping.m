@@ -19,13 +19,14 @@
 //
 
 #import <CoreFoundation/CoreFoundation.h>
-#import <ISO8601DateFormatterValueTransformer/ISO8601DateFormatterValueTransformer.h>
-#import <RKValueTransformers/RKValueTransformers.h>
-#import <RestKit/ObjectMapping/RKAttributeMapping.h>
-#import <RestKit/ObjectMapping/RKObjectMapping.h>
-#import <RestKit/ObjectMapping/RKPropertyInspector.h>
-#import <RestKit/ObjectMapping/RKRelationshipMapping.h>
-#import <RestKit/Support/RKLog.h>
+#import "RKObjectMapping.h"
+#import "RKRelationshipMapping.h"
+#import "RKPropertyInspector.h"
+#import "RKLog.h"
+#import "RKAttributeMapping.h"
+#import "RKRelationshipMapping.h"
+#import "RKValueTransformers.h"
+#import "ISO8601DateFormatterValueTransformer.h"
 
 typedef NSString * (^RKSourceToDesinationKeyTransformationBlock)(RKObjectMapping *, NSString *);
 
@@ -465,7 +466,7 @@ static NSArray *RKRemoveProperty(NSArray *array, RKPropertyMapping *mapping)
     if ([self.propertyMappings count] != [otherMapping.propertyMappings count]) return NO;
 
     for (RKPropertyMapping *propertyMapping in self.propertyMappings) {
-        RKPropertyMapping *otherPropertyMapping = [otherMapping mappingForSourceKeyPath:propertyMapping.sourceKeyPath];
+        RKPropertyMapping *otherPropertyMapping = [otherMapping mappingForDestinationKeyPath:propertyMapping.destinationKeyPath];
         if (! [propertyMapping isEqualToMapping:otherPropertyMapping]) return NO;
     }
 
